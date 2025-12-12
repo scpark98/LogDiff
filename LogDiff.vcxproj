@@ -196,8 +196,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.h" />
+    <ClInclude Include="..\Common\CEdit\SCEdit\SCEdit.h" />
     <ClInclude Include="..\Common\colors.h" />
     <ClInclude Include="..\Common\Functions.h" />
+    <ClInclude Include="DateTimeOffsetDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LogDiff.h" />
     <ClInclude Include="LogDiffDlg.h" />
@@ -207,6 +209,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\Common\CEdit\SCEdit\SCEdit.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -224,6 +232,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="DateTimeOffsetDlg.cpp" />
     <ClCompile Include="LogDiff.cpp" />
     <ClCompile Include="LogDiffDlg.cpp" />
     <ClCompile Include="pch.cpp">

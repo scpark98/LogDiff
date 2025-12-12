@@ -5,6 +5,7 @@
 #pragma once
 
 #include <deque>
+#include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
 
 // CLogDiffDlg 대화 상자
@@ -16,10 +17,24 @@ public:
 
 	std::deque<CString>				m_files;
 
+	std::deque<CSCEdit*>			m_title;		//문서 타이틀
 	std::deque<CRichEditCtrlEx*>	m_rich;
+
+	std::deque<std::deque<CString>>	m_content;		//
+
+	enum TIMER_ID
+	{
+		timer_id_initial_focus = 0,
+	};
+
 	void							open_files();
+	void							release();
 
 	void							arrange_controls();
+	void							arrange_logs_by_timestamp();
+
+	void							sync_scroll(MSG* pMsg);
+	LRESULT							on_message_CRichEditCtrlEx(WPARAM wParam, LPARAM lParam);
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
@@ -46,4 +61,12 @@ public:
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnDropFiles(HDROP hDropInfo);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnMouseHWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnMenuDatetimeShift();
+	afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
 };

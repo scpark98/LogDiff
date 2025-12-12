@@ -10,6 +10,8 @@
 
 #include "Common/Functions.h"
 
+#include "DateTimeOffsetDlg.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -72,6 +74,14 @@ BEGIN_MESSAGE_MAP(CLogDiffDlg, CDialogEx)
 	ON_BN_CLICKED(IDCANCEL, &CLogDiffDlg::OnBnClickedCancel)
 	ON_WM_DROPFILES()
 	ON_WM_SIZE()
+	ON_WM_HSCROLL()
+	ON_WM_VSCROLL()
+	ON_WM_MOUSEHWHEEL()
+	ON_WM_MOUSEWHEEL()
+	//ON_REGISTERED_MESSAGE(Message_CRichEditCtrlEx, &CLogDiffDlg::on_message_CRichEditCtrlEx)
+	ON_WM_TIMER()
+	ON_COMMAND(ID_MENU_DATETIME_SHIFT, &CLogDiffDlg::OnMenuDatetimeShift)
+	ON_WM_CONTEXTMENU()
 END_MESSAGE_MAP()
 
 
@@ -110,6 +120,14 @@ BOOL CLogDiffDlg::OnInitDialog()
 	RestoreWindowPosition(&theApp, this);
 
 	DragAcceptFiles();
+
+	m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20250924.log"));
+	//m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20250925.log"));
+	m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20251105.log"));
+
+	open_files();
+
+	SetTimer(timer_id_initial_focus, 10, NULL);
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -181,13 +199,25 @@ void CLogDiffDlg::OnBnClickedOk()
 void CLogDiffDlg::OnBnClickedCancel()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	release();
+
+	CDialogEx::OnCancel();
+}
+
+void CLogDiffDlg::release()
+{
 	for (int i = 0; i < m_rich.size(); i++)
 	{
 		m_rich[i]->DestroyWindow();
 		delete m_rich[i];
+
+		m_title[i]->DestroyWindow();
+		delete m_title[i];
 	}
 
-	CDialogEx::OnCancel();
+	m_rich.clear();
+	m_title.clear();
+	m_content.clear();
 }
 
 void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
@@ -214,21 +244,49 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 	CDialogEx::OnDropFiles(hDropInfo);
 }
 
+//m_files에 채워진 파일들을 로딩한다.
 void CLogDiffDlg::open_files()
 {
+	release();
+
+	if (m_files.size() == 0)
+		return;
+
+	m_content.resize(m_files.size());
+
 	for (int i = 0; i < m_files.size(); i++)
 	{
 		CRichEditCtrlEx* rich = new CRichEditCtrlEx();
-		rich->Create(WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_READONLY | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 0);
+		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_READONLY | WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
+			CRect(0, 0, 1, 1), this, 0);
 		rich->use_popup_menu(false);
 		rich->ShowTimeInfo(false);
-		rich->SetFontSize(9);
-		rich->SetFontName(_T("Consolas"));
-		rich->load(m_files[i]);
+		CFont* font = GetFont();
+		rich->SetFont(font);
+		//rich->SetFontSize(9);
+		//rich->SetFontName(_T("Consolas"));
+		//rich->load(m_files[i]);
+		//rich->SetSel(-1, 0);
+		//rich->LineScroll(0);
+		read_file(m_files[i], &m_content[i], true);
 		m_rich.push_back(rich);
+
+		CSCEdit* edit = new CSCEdit();
+		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER, CRect(0, 0, 1, 1), this, 1);
+		edit->SetFont(font);
+		edit->set_text(m_files[i]);
+		edit->set_text_color(Gdiplus::Color::Blue);
+		edit->set_back_color(Gdiplus::Color::Ivory);
+		edit->set_use_readonly_color(false);
+		edit->set_line_align(DT_VCENTER);
+		m_title.push_back(edit);
 	}
 
 	arrange_controls();
+
+	Wait(10);
+
+	arrange_logs_by_timestamp();
 }
 
 void CLogDiffDlg::arrange_controls()
@@ -240,17 +298,22 @@ void CLogDiffDlg::arrange_controls()
 		return;
 
 	int gap = 4;
+	int edit_height = 24;
 	CSize m_sz_scrollbar(8, rc.Height());
 	CRect margin(8, 8, 8, 8);
 
 	int w = (rc.Width() - (m_rich.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_rich.size();
 
-	CRect r = make_rect(margin.left, margin.top, w, rc.Height() - margin.top - margin.bottom);
+	CRect rtitle = CRect(margin.left, margin.top, margin.left + w, margin.top + edit_height);
+	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom);
 
 	for (int i = 0; i < m_rich.size(); i++)
 	{
-		m_rich[i]->MoveWindow(r);
-		r.OffsetRect(w + gap, 0);
+		m_rich[i]->MoveWindow(rrich);
+		rrich.OffsetRect(w + gap, 0);
+
+		m_title[i]->MoveWindow(rtitle);
+		rtitle.OffsetRect(w + gap, 0);
 	}
 }
 
@@ -260,4 +323,152 @@ void CLogDiffDlg::OnSize(UINT nType, int cx, int cy)
 
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
 	arrange_controls();
+}
+
+BOOL CLogDiffDlg::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
+	if (pMsg->message == WM_HSCROLL ||
+		pMsg->message == WM_VSCROLL ||
+		pMsg->message == WM_MOUSEHWHEEL ||
+		pMsg->message == WM_MOUSEWHEEL)
+	{
+		TRACE(_T("PreTranslateMessage: pMsg->message = %d\n"), pMsg->message);
+		sync_scroll(pMsg);
+	}
+
+	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+void CLogDiffDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	TRACE(_T("OnHScroll: code=%d, pos=%d\n"), nSBCode, nPos);
+
+	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
+}
+
+void CLogDiffDlg::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	TRACE(_T("OnVScroll: code=%d, pos=%d\n"), nSBCode, nPos);
+
+	CDialogEx::OnVScroll(nSBCode, nPos, pScrollBar);
+}
+
+void CLogDiffDlg::OnMouseHWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	// 이 기능을 사용하려면 Windows Vista 이상이 있어야 합니다.
+	// _WIN32_WINNT 기호는 0x0600보다 크거나 같아야 합니다.
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	//TRACE(_T("OnHScroll: code=%d, pos=%d\n"), nSBCode, nPos);
+	traceonly;
+
+	CDialogEx::OnMouseHWheel(nFlags, zDelta, pt);
+}
+
+BOOL CLogDiffDlg::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	traceonly;
+
+	return CDialogEx::OnMouseWheel(nFlags, zDelta, pt);
+}
+
+void CLogDiffDlg::sync_scroll(MSG* pMsg)
+{
+	CRichEditCtrlEx* rich = (CRichEditCtrlEx*)CWnd::FromHandle(pMsg->hwnd);
+
+	int hpos = rich->GetScrollPos(SB_HORZ);
+	int vpos = rich->GetScrollPos(SB_VERT);
+	TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
+
+	for (int i = 0; i < m_rich.size(); i++)
+	{
+		if (rich == m_rich[i])
+			continue;
+
+		if (pMsg->message == WM_MOUSEHWHEEL || pMsg->message == WM_HSCROLL)
+			::SendMessage(m_rich[i]->m_hWnd, WM_HSCROLL, MAKEWPARAM(SB_THUMBPOSITION, hpos), (LPARAM)(m_rich[i]->m_hWnd));
+		else if (pMsg->message == WM_MOUSEWHEEL || pMsg->message == WM_VSCROLL)
+			::SendMessage(m_rich[i]->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_rich[i]->m_hWnd));
+	}
+}
+
+void CLogDiffDlg::arrange_logs_by_timestamp()
+{
+	//각 라인 인덱스를 증가시키면서 timestamp를 추출하고 비교하여 timestamp 순으로 출력시킨다.
+	//timestamp가 없는 라인은 빈 라인을 추가해준다.
+	int i, j;
+	int max_line_count = 0;
+	int max_line_index = 0;
+	std::deque<int> total_lines(m_rich.size(), 0);
+
+	//로그들 중 최대 라인수를 구하고
+	for (i = 0; i < m_rich.size(); i++)
+	{
+		total_lines[i] = m_content[i].size();
+		if (max_line_count < total_lines[i])
+		{
+			max_line_count = total_lines[i];
+			max_line_index = i;
+		}
+
+		m_rich[i]->SetRedraw(FALSE);
+	}
+
+	//나머지 로그들도 동일한 라인수로 맞춰준다?
+	std::deque<int> cur_line(3, 0);
+
+	for (i = 0; i < m_content.size(); i++)
+	{
+		for (j = 0; j < m_content[max_line_index].size(); j++)
+		{
+			if (j < m_content[i].size())
+			{
+				//라인이 존재하면 해당 라인을 추가
+				m_rich[i]->add(-1, m_content[i][j]);
+			}
+		}
+	}
+
+	for (i = 0; i < m_rich.size(); i++)
+	{
+		m_rich[i]->SetRedraw(TRUE);
+	}
+}
+
+void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	if (nIDEvent == timer_id_initial_focus)
+	{
+		KillTimer(timer_id_initial_focus);
+
+		for (int i = 0; i < m_rich.size(); i++)
+		{
+			m_rich[i]->SetSel(-1, 0);
+			//Wait(1000);
+			//m_rich[0]->LineScroll(0);	//왜 이 함수호출로는 안먹히고 SendMessage()는 동작하는지...
+			::SendMessage(m_rich[i]->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_rich[i]->m_hWnd));
+		}
+	}
+
+	CDialogEx::OnTimer(nIDEvent);
+}
+
+void CLogDiffDlg::OnMenuDatetimeShift()
+{
+	CDateTimeOffsetDlg dlg;
+
+	if (dlg.DoModal() == IDCANCEL)
+		return;
+
+
+}
+
+void CLogDiffDlg::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/)
+{
+	CMenu menu;
+	CMenu* pSubMenu;
 }
