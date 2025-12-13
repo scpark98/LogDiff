@@ -21,6 +21,10 @@ public:
 	std::deque<CRichEditCtrlEx*>	m_rich;
 
 	std::deque<std::deque<CString>>	m_content;		//
+	void							extract_timestamp(CString line, SYSTEMTIME& time_stamp);
+	void							shift_datetime_in_log_line(CString& line, SYSTEMTIME tOffset);
+
+	CRichEditCtrlEx*				m_context_menu_hwnd = NULL;
 
 	enum TIMER_ID
 	{

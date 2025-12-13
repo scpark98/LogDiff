@@ -9,7 +9,9 @@
 #define IDR_MAINFRAME                   128
 #define IDD_DATETIME_OFFSET             130
 #define IDR_MENU1                       132
+#define IDR_MENU_CONTEXT                132
 #define IDC_DATE                        1000
+#define IDC_DATETIME                    1000
 #define IDC_RADIO_TIME_SHIFT            1001
 #define IDC_RADIO_DATETIME              1002
 #define IDC_TIME                        1003

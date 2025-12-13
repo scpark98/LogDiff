@@ -8,6 +8,7 @@
 #include "LogDiffDlg.h"
 #include "afxdialogex.h"
 
+#include <regex>
 #include "Common/Functions.h"
 
 #include "DateTimeOffsetDlg.h"
@@ -257,7 +258,8 @@ void CLogDiffDlg::open_files()
 	for (int i = 0; i < m_files.size(); i++)
 	{
 		CRichEditCtrlEx* rich = new CRichEditCtrlEx();
-		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_READONLY | WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
+		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_READONLY |
+					 WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
 			CRect(0, 0, 1, 1), this, 0);
 		rich->use_popup_menu(false);
 		rich->ShowTimeInfo(false);
@@ -271,12 +273,14 @@ void CLogDiffDlg::open_files()
 		read_file(m_files[i], &m_content[i], true);
 		m_rich.push_back(rich);
 
+		//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
 		CSCEdit* edit = new CSCEdit();
-		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER, CRect(0, 0, 1, 1), this, 1);
+		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
 		edit->SetFont(font);
+		edit->set_font_weight(500);
 		edit->set_text(m_files[i]);
-		edit->set_text_color(Gdiplus::Color::Blue);
-		edit->set_back_color(Gdiplus::Color::Ivory);
+		edit->set_text_color(Gdiplus::Color::RoyalBlue);
+		edit->set_back_color(Gdiplus::Color::Ivory);// get_sys_color(COLOR_3DFACE));
 		edit->set_use_readonly_color(false);
 		edit->set_line_align(DT_VCENTER);
 		m_title.push_back(edit);
@@ -297,9 +301,9 @@ void CLogDiffDlg::arrange_controls()
 	if (m_rich.size() == 0)
 		return;
 
-	int gap = 4;
-	int edit_height = 24;
-	CSize m_sz_scrollbar(8, rc.Height());
+	int gap = 8;
+	int edit_height = 32;
+	CSize m_sz_scrollbar(24, rc.Height());
 	CRect margin(8, 8, 8, 8);
 
 	int w = (rc.Width() - (m_rich.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_rich.size();
@@ -462,13 +466,119 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	CDateTimeOffsetDlg dlg;
 
 	if (dlg.DoModal() == IDCANCEL)
+	{
+		return;
+	}
+
+	//SYSTEMTIME t;
+	//ZeroMemory(&t, sizeof(SYSTEMTIME));
+
+	//t = dlg.m_t;
+
+	auto it = std::find(m_rich.begin(), m_rich.end(), m_context_menu_hwnd);
+	if (it == m_rich.end())
 		return;
 
+	int index = std::distance(m_rich.begin(), it);
+	trace(index);
+	
+	CString line;
+	SYSTEMTIME time_stamp;
+	SYSTEMTIME time_first_log;	//맨 첫번째 로그의 시간값. 특정 시간으로 변경 시 1번 로그부터 상대시간값을 더해줘야 한다.
+	SYSTEMTIME time_current_log;	
+
+	//"yyyy-MM-dd hh:mm:ss.???" 형태가 표준이지만 로그에 따라서
+	//날짜 구분자가 '-', '/' 이거나 없을수도 있다.
+	//우선 날짜의 '-' 또는 '/'와 시간의 ':'는 반드시 존재하고 날짜와 시간 사이의 공백은 n개이어도 인식된다.
+	//std::regex datetime_pattern("([0-9]{4})[-/]([0-9]{2})[-/]([0-9]{2})[ ]*([0-9]{2})[:]([0-9]{2})[:]([0-9]{2})");
+	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
+
+	for (int i = 0; i < 10/*m_content[index].size()*/; i++)
+	{
+		line = m_content[index][i];
+		line.Trim();
+
+		if (line.IsEmpty())
+		{
+			TRACE(_T("%d. empty line\n"), i);
+			continue;
+		}
+
+		std::smatch matches;
+		std::string ssline = CString2string(line);
+
+		if (std::regex_search(ssline, matches, datetime_pattern))
+		{
+			TRACE(_T("%d. Matched datetime: '%S' src = %s\n"), i, matches[0].str().c_str(), line);
+
+			if (i == 0)
+				time_first_log = get_SYSTEMTIME_from_datetime_str(CString(matches[0].str().c_str()));
+			else
+				time_current_log = get_SYSTEMTIME_from_datetime_str(CString(matches[0].str().c_str()));
+
+			//datetime을 추출하고 shift 또는 set 한 후 다시 라인에 반영한다.
+			CString prefix(matches.prefix().str().c_str());
+			CString suffix(matches.suffix().str().c_str());
+
+			if (dlg.m_method == method_offset_time_shift)
+			{
+				
+			}
+			else if(dlg.m_method == method_specific_datetime)
+			{
+				//0번째 로그 시간과 현재 로그 시간과의 차이를 구하고
+				if (i == 0)
+				{
+					//첫번째 로그는 지정한 특정 시간으로 변경
+					time_current_log = dlg.m_t;
+				}
+				else
+				{
+					//두번째 이후 로그들은 첫번째 로그와의 시간차이를 구해서 설정된 시간값에 더해준다.
+					//현재 로그 시간 = 지정한 특정 시간 + (현재 로그 시간 - 첫번째 로그 시간)
+					SYSTEMTIME time_diff = time_current_log - time_first_log;
+					time_current_log = dlg.m_t + time_diff;
+				}
+
+				//다시 라인에 반영
+				CString new_datetime_str = get_datetime_str(time_current_log);
+				m_content[index][i] = prefix + new_datetime_str + suffix;
+			}
+		}
+		else
+		{
+			TRACE(_T("%d. No match found in line: %s\n"), i, line);
+		}
+
+		//std::regex_search(line.GetString(), datetime_pattern);
+		//extract_timestamp(line, time_stamp);
+		//TRACE(_T("%s\n"), get_datetime_str(time_stamp));
+		//shift_datetime_in_log_line(m_content[index][i], dlg.m_t);
+	}
+}
+
+void CLogDiffDlg::extract_timestamp(CString line, SYSTEMTIME& time_stamp)
+{
+	int end_bracket = line.Find(']');
+	line = line.Left(end_bracket);
+	line.Remove('[');
+	time_stamp = get_SYSTEMTIME_from_datetime_str(line);
+}
+
+void CLogDiffDlg::shift_datetime_in_log_line(CString& line, SYSTEMTIME tOffset)
+{
 
 }
 
-void CLogDiffDlg::OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/)
+void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
 {
+	m_context_menu_hwnd = (CRichEditCtrlEx*)pWnd;
+
 	CMenu menu;
-	CMenu* pSubMenu;
+	CMenu* pMenu = NULL;
+
+	menu.LoadMenu(IDR_MENU_CONTEXT);
+	pMenu = menu.GetSubMenu(0);
+
+	pMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, this);
 }
