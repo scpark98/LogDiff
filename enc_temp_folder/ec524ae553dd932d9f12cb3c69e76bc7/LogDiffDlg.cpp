@@ -463,15 +463,6 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			return (a.time_stamp < b.time_stamp);
 		});
 
-	//0 ~ n까지 순차적으로 나타나는지 체크한다.
-	//만약 index가 0 1 2로 순차적으로 나타나야 하는데 0 1 1이었다면 두번째에 있는 1 뒤에 2번 항목으로 공백을 추가시켜준다.
-	//이렇게 끝까지 순차 검사를 완료했다면 각각 인덱스대로 m_content[i]에 다시 넣어준다.
-	for (i = 0; i < list.size(); i++)
-	{
-
-	}
-
-	/*
 	FILE* fp = NULL;
 	_tfopen_s(&fp, _T("D:\\list.txt"), _T("wt")CHARSET);
 	for (i = 0; i < list.size(); i++)
@@ -480,7 +471,6 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	}
 
 	fclose(fp);
-	*/
 
 	//각 라인 인덱스를 증가시키면서 timestamp를 추출하고 비교하여 timestamp 순으로 출력시킨다.
 	//timestamp가 없는 라인은 빈 라인을 추가해준다.

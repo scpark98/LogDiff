@@ -17,13 +17,13 @@ public:
 	CLogDiffDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
 
 	std::deque<CString>				m_files;
-
 	std::deque<CSCEdit*>			m_title;		//문서 타이틀
 	std::deque<CRichEditCtrlEx*>	m_rich;
 
 	std::deque<std::deque<CString>>	m_content;		//
 
 	CRichEditCtrlEx*				m_context_menu_hwnd = NULL;
+	int								m_context_menu_doc_index = -1;
 
 	enum TIMER_ID
 	{
@@ -75,4 +75,8 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnMenuDatetimeShift();
 	afx_msg void OnContextMenu(CWnd* /*pWnd*/, CPoint /*point*/);
+	afx_msg void OnMenuSave();
+	afx_msg void OnMenuSaveAs();
+	afx_msg void OnMenuCurrentFolder();
+	afx_msg void OnMenuSort();
 };
