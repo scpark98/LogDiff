@@ -2,6 +2,7 @@
 #include "afxdialogex.h"
 
 #include "Common/CEdit/SCEdit/SCEdit.h"
+#include "Common/data_types/CSCTime/SCTime.h"
 
 enum OFFSET_METHOD
 {
@@ -21,7 +22,7 @@ public:
 
 	int				m_method;	// 0: 시간 오프셋, 1: 특정 날짜/시간
 	int				m_sign = 1; // time_shift 값이 양수인지 음수인지. datetime 지정시에는 사용안함.
-	SYSTEMTIME		m_t;
+	CSCTime			m_t;
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME

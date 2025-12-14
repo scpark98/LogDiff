@@ -7,6 +7,7 @@
 #include <deque>
 #include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
+#include "Common/data_types/CSCTime/SCTime.h"
 
 // CLogDiffDlg 대화 상자
 class CLogDiffDlg : public CDialogEx
@@ -21,8 +22,6 @@ public:
 	std::deque<CRichEditCtrlEx*>	m_rich;
 
 	std::deque<std::deque<CString>>	m_content;		//
-	void							extract_timestamp(CString line, SYSTEMTIME& time_stamp);
-	void							shift_datetime_in_log_line(CString& line, SYSTEMTIME tOffset);
 
 	CRichEditCtrlEx*				m_context_menu_hwnd = NULL;
 
@@ -34,7 +33,10 @@ public:
 	void							open_files();
 	void							release();
 
-	void							arrange_controls();
+	void							arrange_layout();
+
+	CSCTime							get_time_stamp(CString log_line);
+
 	void							arrange_logs_by_timestamp();
 
 	void							sync_scroll(MSG* pMsg);

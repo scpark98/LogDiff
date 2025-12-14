@@ -51,7 +51,9 @@ BOOL CDateTimeOffsetDlg::OnInitDialog()
 
 	m_method = AfxGetApp()->GetProfileInt(_T("setting\\offset dlg"), _T("m_method"), method_offset_time_shift);
 	m_sign = AfxGetApp()->GetProfileInt(_T("setting\\offset dlg"), _T("m_sign"), 1);
-	m_t = get_profile_value(_T("setting\\offset dlg"), _T("m_t"), SYSTEMTIME());
+	m_t.load_profile_value(_T("setting\\offset dlg"), _T("m_t"), CSCTime());
+	CString shift_value = AfxGetApp()->GetProfileString(_T("setting\\offset dlg"), _T("shift value"), _T(""));
+	m_edit_time_shift.set_text(shift_value);
 
 	//특정 날짜 시간으로 설정한 이력이 있어도
 	//m_method가 time_shift방식이면 m_datetime에는 기존 설정했던 시간이 아닌 현재 시간으로 표시된다.
@@ -62,16 +64,17 @@ BOOL CDateTimeOffsetDlg::OnInitDialog()
 		m_edit_time_shift.EnableWindow(TRUE);
 		m_datetime.EnableWindow(FALSE);
 
-		float f = (float)m_t.wSecond + (float)m_t.wMilliseconds / 1000.0f;
+		float f = (float)m_t.second + (float)m_t.milliseconds / 1000.0f;
 		if (m_sign < 0)
 			f *= -1.0f;
 		CString text;
 		text.Format(_T("%.3f"), f);
 		m_edit_time_shift.set_text(text);
 
-		SYSTEMTIME t_specific = get_profile_value(_T("setting\\offset dlg"), _T("m_t_specific"), SYSTEMTIME());
-		if (t_specific.wYear != 0)
-			m_datetime.SetTime(t_specific);
+		CSCTime t_specific;
+		t_specific.load_profile_value(_T("setting\\offset dlg"), _T("m_t_specific"), CSCTime());
+		if (t_specific.year != 0)
+			m_datetime.SetTime(t_specific.to_SYSTEMTIME());
 	}
 	else
 	{
@@ -87,7 +90,8 @@ BOOL CDateTimeOffsetDlg::OnInitDialog()
 		//	m_t.wMinute,
 		//	m_t.wSecond
 		//);
-		m_datetime.SetTime(m_t);
+		if (!m_t.is_empty())
+			m_datetime.SetTime(m_t.to_SYSTEMTIME());
 		//m_time.SetTime(&dt);
 	}
 
@@ -108,6 +112,8 @@ void CDateTimeOffsetDlg::OnBnClickedOk()
 		if (text.IsEmpty() || (text == _T("0.000")))
 			return;
 
+		AfxGetApp()->WriteProfileString(_T("setting\\offset dlg"), _T("shift value"), text);
+
 		float f = _tstof(text);
 		if (f < 0.0f)
 		{
@@ -115,18 +121,17 @@ void CDateTimeOffsetDlg::OnBnClickedOk()
 			f *= -1.0f;
 		}
 
-		m_t.wSecond = (int)f;
-		m_t.wMilliseconds = (int)(f * 1000) % 1000;
+		m_t = CSCTime(0, 0, 0, 0, 0, (int)f, (int)(f * 1000) % 1000);
 	}
 	else
 	{
-		m_datetime.GetTime(&m_t);
-		write_profile_value(_T("setting\\offset dlg"), _T("m_t_specific"), m_t);
+		m_t.get_time(m_datetime);
+		m_t.save_profile_value(_T("setting\\offset dlg"), _T("m_t_specific"));
 	}
 
 	AfxGetApp()->WriteProfileInt(_T("setting\\offset dlg"), _T("m_method"), m_method);
 	AfxGetApp()->WriteProfileInt(_T("setting\\offset dlg"), _T("m_sign"), m_sign);
-	write_profile_value(_T("setting\\offset dlg"), _T("m_t"), m_t);
+	m_t.save_profile_value(_T("setting\\offset dlg"), _T("m_t"));
 
 	CDialogEx::OnOK();
 }

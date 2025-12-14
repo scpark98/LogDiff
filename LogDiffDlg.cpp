@@ -265,14 +265,19 @@ void CLogDiffDlg::open_files()
 		rich->ShowTimeInfo(false);
 		CFont* font = GetFont();
 		rich->SetFont(font);
+
+		//라인단위로 처리해야 하므로 아래에서 read_file()을 호출하지만 그 라인들을 다시
+		//rich->load(m_files[i]);
 		//rich->SetFontSize(9);
 		//rich->SetFontName(_T("Consolas"));
 		//rich->load(m_files[i]);
 		//rich->SetSel(-1, 0);
 		//rich->LineScroll(0);
 		read_file(m_files[i], &m_content[i], true);
+		rich->set_text(&m_content[i]);
 		m_rich.push_back(rich);
 
+		//문서 타이틀 표시
 		//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
 		CSCEdit* edit = new CSCEdit();
 		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
@@ -286,14 +291,16 @@ void CLogDiffDlg::open_files()
 		m_title.push_back(edit);
 	}
 
-	arrange_controls();
+	//파일수에 따라 레이아웃을 재조정한다.
+	arrange_layout();
 
-	Wait(10);
-
-	arrange_logs_by_timestamp();
+	//맨 처음 파일을 연 후에는 바로 정렬하지 않는다.
+	//처음 실행 후 파일 내용을 표시한 후에는 drag&drop 등의 액션으로 파일이 추가되거나 빠지거나 달라지면
+	//그 때는 바로 정렬을 수행한다.
+	//arrange_logs_by_timestamp();
 }
 
-void CLogDiffDlg::arrange_controls()
+void CLogDiffDlg::arrange_layout()
 {
 	CRect rc;
 	GetClientRect(rc);
@@ -326,7 +333,7 @@ void CLogDiffDlg::OnSize(UINT nType, int cx, int cy)
 	CDialogEx::OnSize(nType, cx, cy);
 
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
-	arrange_controls();
+	arrange_layout();
 }
 
 BOOL CLogDiffDlg::PreTranslateMessage(MSG* pMsg)
@@ -337,7 +344,7 @@ BOOL CLogDiffDlg::PreTranslateMessage(MSG* pMsg)
 		pMsg->message == WM_MOUSEHWHEEL ||
 		pMsg->message == WM_MOUSEWHEEL)
 	{
-		TRACE(_T("PreTranslateMessage: pMsg->message = %d\n"), pMsg->message);
+		//TRACE(_T("PreTranslateMessage: pMsg->message = %d\n"), pMsg->message);
 		sync_scroll(pMsg);
 	}
 
@@ -385,7 +392,7 @@ void CLogDiffDlg::sync_scroll(MSG* pMsg)
 
 	int hpos = rich->GetScrollPos(SB_HORZ);
 	int vpos = rich->GetScrollPos(SB_VERT);
-	TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
+	//TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
 
 	for (int i = 0; i < m_rich.size(); i++)
 	{
@@ -421,6 +428,26 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 		m_rich[i]->SetRedraw(FALSE);
 	}
 
+	//while문을 돌면서 각 로그의 현재 라인 로그 시각을 추출하고
+	//가장 빠른 로그가 아니라면
+	std::deque<int> index(m_rich.size(), 0);
+	std::deque<CSCTime> timestamp(m_rich.size(), CSCTime());
+
+	//우선 각 로그의 첫번째 로그를 구하고
+	for (int i = 0; i < m_rich.size(); i++)
+		timestamp[i] = CSCTime(m_content[i][index[i]]);
+
+	//while (true)
+	{
+		//
+	}
+
+	for (i = 0; i < m_rich.size(); i++)
+	{
+		m_rich[i]->SetRedraw(TRUE);
+	}
+
+	/*
 	//나머지 로그들도 동일한 라인수로 맞춰준다?
 	std::deque<int> cur_line(3, 0);
 
@@ -440,6 +467,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	{
 		m_rich[i]->SetRedraw(TRUE);
 	}
+	*/
 }
 
 void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
@@ -461,6 +489,19 @@ void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
 	CDialogEx::OnTimer(nIDEvent);
 }
 
+CSCTime CLogDiffDlg::get_time_stamp(CString log_line)
+{
+	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
+
+	std::smatch matches;
+	std::string ssline = CString2string(log_line);
+
+	if (std::regex_search(ssline, matches, datetime_pattern))
+		return CSCTime(CString(matches[0].str().c_str()));
+
+	return CSCTime();
+}
+
 void CLogDiffDlg::OnMenuDatetimeShift()
 {
 	CDateTimeOffsetDlg dlg;
@@ -470,11 +511,6 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 		return;
 	}
 
-	//SYSTEMTIME t;
-	//ZeroMemory(&t, sizeof(SYSTEMTIME));
-
-	//t = dlg.m_t;
-
 	auto it = std::find(m_rich.begin(), m_rich.end(), m_context_menu_hwnd);
 	if (it == m_rich.end())
 		return;
@@ -483,9 +519,9 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	trace(index);
 	
 	CString line;
-	SYSTEMTIME time_stamp;
-	SYSTEMTIME time_first_log;	//맨 첫번째 로그의 시간값. 특정 시간으로 변경 시 1번 로그부터 상대시간값을 더해줘야 한다.
-	SYSTEMTIME time_current_log;	
+	CSCTime time_stamp;
+	CSCTime time_first_log;	//맨 첫번째 로그의 시간값. 특정 시간으로 변경 시 1번 로그부터 상대시간값을 더해줘야 한다.
+	CSCTime time_current_log;	
 
 	//"yyyy-MM-dd hh:mm:ss.???" 형태가 표준이지만 로그에 따라서
 	//날짜 구분자가 '-', '/' 이거나 없을수도 있다.
@@ -493,14 +529,16 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	//std::regex datetime_pattern("([0-9]{4})[-/]([0-9]{2})[-/]([0-9]{2})[ ]*([0-9]{2})[:]([0-9]{2})[:]([0-9]{2})");
 	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
 
-	for (int i = 0; i < 10/*m_content[index].size()*/; i++)
+	for (int i = 0; i < m_content[index].size(); i++)
 	{
 		line = m_content[index][i];
-		line.Trim();
 
-		if (line.IsEmpty())
+		if (line.IsEmpty() || (line.GetLength() == 1 && line.Right(1) == '\n'))
 		{
-			TRACE(_T("%d. empty line\n"), i);
+			Trace(_T("%d. empty line\n"), i);
+			//한줄단위로 처리되므로 empty line은 그냥 continue만 해도 되지만
+			//다른 모든 라인들이 Trim된 상태에서 추가되는 방식이므로 empty line도 Trim된 문자열로 변경시킨다.
+			//m_content[index][i] = line;
 			continue;
 		}
 
@@ -509,12 +547,12 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 
 		if (std::regex_search(ssline, matches, datetime_pattern))
 		{
-			TRACE(_T("%d. Matched datetime: '%S' src = %s\n"), i, matches[0].str().c_str(), line);
+			Trace(_T("%d. Matched datetime: '%S' src = %s\n"), i, matches[0].str().c_str(), line);
 
-			if (i == 0)
-				time_first_log = get_SYSTEMTIME_from_datetime_str(CString(matches[0].str().c_str()));
+			if (i == 0 && (dlg.m_method == method_specific_datetime))
+				time_first_log.from_string(CString(matches[0].str().c_str()));
 			else
-				time_current_log = get_SYSTEMTIME_from_datetime_str(CString(matches[0].str().c_str()));
+				time_current_log.from_string(CString(matches[0].str().c_str()));
 
 			//datetime을 추출하고 shift 또는 set 한 후 다시 라인에 반영한다.
 			CString prefix(matches.prefix().str().c_str());
@@ -522,7 +560,15 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 
 			if (dlg.m_method == method_offset_time_shift)
 			{
-				
+				//현재 로그 시간을 변경한 후 다시 적용시킨다.
+				if (dlg.m_sign > 0)
+					time_current_log = time_current_log + dlg.m_t;
+				else
+					time_current_log = time_current_log - dlg.m_t;
+
+				//다시 라인에 반영
+				CString new_datetime_str = time_current_log.to_string();
+				m_content[index][i] = prefix + new_datetime_str + suffix;
 			}
 			else if(dlg.m_method == method_specific_datetime)
 			{
@@ -536,38 +582,27 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 				{
 					//두번째 이후 로그들은 첫번째 로그와의 시간차이를 구해서 설정된 시간값에 더해준다.
 					//현재 로그 시간 = 지정한 특정 시간 + (현재 로그 시간 - 첫번째 로그 시간)
-					SYSTEMTIME time_diff = time_current_log - time_first_log;
+					CSCTime time_diff = time_current_log - time_first_log;
+					Trace(_T("cur_stamp = %s, diff = %s\n"), time_current_log.to_string(), time_diff.to_string());
 					time_current_log = dlg.m_t + time_diff;
+					Trace(_T("new_stamp = %s\n"), time_current_log.to_string());
 				}
 
 				//다시 라인에 반영
-				CString new_datetime_str = get_datetime_str(time_current_log);
+				CString new_datetime_str = time_current_log.to_string();
 				m_content[index][i] = prefix + new_datetime_str + suffix;
 			}
 		}
 		else
 		{
-			TRACE(_T("%d. No match found in line: %s\n"), i, line);
+			Trace(_T("%d. No match found in line: %s\n"), i, line);
 		}
-
-		//std::regex_search(line.GetString(), datetime_pattern);
-		//extract_timestamp(line, time_stamp);
-		//TRACE(_T("%s\n"), get_datetime_str(time_stamp));
-		//shift_datetime_in_log_line(m_content[index][i], dlg.m_t);
 	}
-}
 
-void CLogDiffDlg::extract_timestamp(CString line, SYSTEMTIME& time_stamp)
-{
-	int end_bracket = line.Find(']');
-	line = line.Left(end_bracket);
-	line.Remove('[');
-	time_stamp = get_SYSTEMTIME_from_datetime_str(line);
-}
+	//변경된 내용을 다시 rich에 적용시킨다.
+	m_rich[index]->set_text(&m_content[index]);
 
-void CLogDiffDlg::shift_datetime_in_log_line(CString& line, SYSTEMTIME tOffset)
-{
-
+	arrange_logs_by_timestamp();
 }
 
 void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)

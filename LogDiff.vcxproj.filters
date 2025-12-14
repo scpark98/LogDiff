@@ -54,6 +54,9 @@
     <ClInclude Include="..\Common\SCGdiplusBitmap.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\Common\data_types\CSCTime\SCTime.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LogDiff.cpp">
@@ -81,6 +84,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\Common\SCGdiplusBitmap.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\data_types\CSCTime\SCTime.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
