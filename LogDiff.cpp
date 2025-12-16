@@ -37,8 +37,6 @@ CLogDiffApp theApp;
 
 BOOL CLogDiffApp::InitInstance()
 {
-	AfxInitRichEdit2(); // 리치 에디트 컨트롤 사용을 위한 초기화
-
 	// Windows XP에서는 InitCommonControlsEx()를 필요로 합니다.
 	// 사용하도록 지정하는 경우, Windows XP 상에서 반드시 InitCommonControlsEx()가 필요합니다.
 	// InitCommonControlsEx()를 사용하지 않으면 창을 만들 수 없습니다.
@@ -53,6 +51,8 @@ BOOL CLogDiffApp::InitInstance()
 
 
 	AfxEnableControlContainer();
+
+	AfxInitRichEdit2(); // 리치 에디트 컨트롤 사용을 위한 초기화
 
 	// 대화 상자에 셸 트리 뷰 또는
 	// 셸 목록 뷰 컨트롤이 포함되어 있는 경우 셸 관리자를 만듭니다.

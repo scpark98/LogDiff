@@ -126,11 +126,16 @@ BOOL CLogDiffDlg::OnInitDialog()
 
 	DragAcceptFiles();
 
-	m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20250924.log"));
-	m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20250925.log"));
-	m_files.push_back(_T("C:\\Users\\Public\\Documents\\LinkMeMine\\Log\\ManualLauncher\\ManualLauncher_20251105.log"));
-
+#if 1
+	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log"));
+	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log"));
+	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log"));
 	open_files();
+#else
+	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMViewer.log"));
+	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMAgentService.log"));
+	open_files();
+#endif
 
 	SetTimer(timer_id_initial_focus, 10, NULL);
 
@@ -262,23 +267,27 @@ void CLogDiffDlg::open_files()
 	for (int i = 0; i < m_files.size(); i++)
 	{
 		CRichEditCtrlEx* rich = new CRichEditCtrlEx();
-		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | /*ES_READONLY |*/
+		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_NOHIDESEL | ES_READONLY |
 					 WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
 			CRect(0, 0, 1, 1), this, 0);
 		rich->use_popup_menu(false);
 		rich->ShowTimeInfo(false);
 		CFont* font = GetFont();
 		rich->SetFont(font);
-
-		//라인단위로 처리해야 하므로 아래에서 read_file()을 호출하지만 그 라인들을 다시
-		//rich->load(m_files[i]);
-		rich->set_font_size(14);
-		rich->set_font_name(_T("Consolas"));
-		//rich->load(m_files[i]);
-		//rich->SetSel(-1, 0);
-		//rich->LineScroll(0);
-		read_file(m_files[i], &m_content[i], true);
+		rich->add_keyword_format(CSCKeywordFormat(_T("error"), red, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("에러"), red, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("fail"), red, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("실패"), red, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("warning"), orange, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("경고"), orange, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("success"), royalblue, true));
+		rich->add_keyword_format(CSCKeywordFormat(_T("성공"), royalblue, true));
+		rich->set_font_size(10);
+		//rich->set_font_name(_T("Consolas"));
+		rich->set_font_name(_T("Noto Sans KR"));
+		read_file(m_files[i], &m_content[i]);
 		rich->set_text(&m_content[i]);
+		rich->SetOptions(ECOOP_XOR, ECO_SAVESEL);
 		m_rich.push_back(rich);
 
 		//문서 타이틀 표시
@@ -286,8 +295,8 @@ void CLogDiffDlg::open_files()
 		CSCEdit* edit = new CSCEdit();
 		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
 		edit->SetFont(font);
-		edit->set_font_name(_T("Consolas"));
-		edit->set_font_size(12);
+		edit->set_font_name(_T("Consolas"));// (_T("Noto Sans KR"));
+		edit->set_font_size(10);
 		edit->set_font_weight(700);
 		edit->set_text(m_files[i]);
 		edit->set_text_color(Gdiplus::Color::RoyalBlue);
@@ -443,8 +452,8 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 
 		for (j = 0; j < m_content[i].size(); j++)
 		{
-			//만약 공백이나 timestamp가 없는 라인이라면 timestamp는 이전값과 동일하게,
-			//content에는 공백을 넣어준다.
+			//만약 공백이나 timestamp가 없는 라인이라면 timestamp는 이전값보다 ms를 1만큼 큰 값으로 변경해준다.
+			//그래야만 정렬시에 그 위치가 유지된다.
 			CString log = m_content[i][j];
 			CSCTime time_stamp(m_content[i][j]);
 
@@ -463,29 +472,77 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			return (a.time_stamp < b.time_stamp);
 		});
 
-	//0 ~ n까지 순차적으로 나타나는지 체크한다.
-	//만약 index가 0 1 2로 순차적으로 나타나야 하는데 0 1 1이었다면 두번째에 있는 1 뒤에 2번 항목으로 공백을 추가시켜준다.
-	//이렇게 끝까지 순차 검사를 완료했다면 각각 인덱스대로 m_content[i]에 다시 넣어준다.
-	for (i = 0; i < list.size(); i++)
-	{
-
-	}
-
-	/*
 	FILE* fp = NULL;
-	_tfopen_s(&fp, _T("D:\\list.txt"), _T("wt")CHARSET);
+	_tfopen_s(&fp, _T("D:\\log_list_before_adjust.txt"), _T("wt")CHARSET);
 	for (i = 0; i < list.size(); i++)
 	{
 		_ftprintf(fp, _T("%d|%s|%s"), list[i].index, list[i].time_stamp.to_string(), list[i].full_log);
 	}
 
 	fclose(fp);
-	*/
 
+	//0 ~ n까지 순차적으로 나타나는지 체크한다.
+	//만약 index가 0 1 2로 순차적으로 나타나야 하는데 0 1 1이었다면 두번째에 있는 1 뒤에 2번 항목으로 공백을 추가시켜준다.
+	//이렇게 끝까지 순차 검사를 완료했다면 각각 인덱스대로 m_content[i]에 다시 넣어준다.
+	int sequence = 0;
+	i = 0;
+
+	while (true)
+	{
+		if (list[i].index != sequence)
+		{
+			//현재 timestamp가 다음 timestamp보다 작을때만 추가한다. 동일하다면 굳이 새 라인을 추가할 필요가 없다.
+			if (false)//(i > 0) && (list[i].time_stamp == list[i - 1].time_stamp))
+			{
+				i--;
+			}
+			else if ((i > 0) && true)//(list[i].time_stamp > list[i - 1].time_stamp))
+			{
+				//i 자리에 한 라인을 추가하되 그 시간값은 바로 전 항목의 시간값과 동일하게 한다.
+				list.insert(list.begin() + i, CForSortLog(sequence, list[i - 1].time_stamp, _T("\n")));
+			}
+			else
+			{
+				//i--;
+			}
+		}
+
+		i++;
+		sequence++;
+
+		if (sequence == m_rich.size())
+			sequence = 0;
+
+		//index i가 list.size()에 도달하면 종료시킨다.
+		if (i >= list.size())
+			break;
+	}
+
+	fp = NULL;
+	_tfopen_s(&fp, _T("D:\\log_list_after_adjust.txt"), _T("wt")CHARSET);
+	for (i = 0; i < list.size(); i++)
+	{
+		_ftprintf(fp, _T("%d|%s|%s"), list[i].index, list[i].time_stamp.to_string(), list[i].full_log);
+	}
+
+	fclose(fp);
+
+
+	//위에서 보정된 list를 각 content에 순차적으로 넣어준다.
+	//우선 기존 content를 모두 clear하고
+	for (i = 0; i < m_content.size(); i++)
+		m_content[i].clear();
+
+	for (i = 0; i < list.size(); i++)
+		m_content[list[i].index].push_back(list[i].full_log);
+
+	for (i = 0; i < m_rich.size(); i++)
+		m_rich[i]->set_text(&m_content[i]);
+
+	/*
 	//각 라인 인덱스를 증가시키면서 timestamp를 추출하고 비교하여 timestamp 순으로 출력시킨다.
 	//timestamp가 없는 라인은 빈 라인을 추가해준다.
 
-	/*
 	int i, j;
 	int max_line_count = 0;
 	int max_line_index = 0;
