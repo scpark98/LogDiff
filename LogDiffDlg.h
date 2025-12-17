@@ -8,6 +8,22 @@
 #include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
 #include "Common/data_types/CSCTime/SCTime.h"
+#include "Common/CProgressCtrl/MacProgressCtrl/MacProgressCtrl.h"
+
+class CLogDiffFile
+{
+public:
+	CLogDiffFile(CString file, CSCEdit* title = NULL, CRichEditCtrlEx* rich = NULL)
+		: m_file(file), m_title(title), m_rich(rich)
+	{
+	}
+
+	CString				m_file;
+	CSCEdit*			m_title = NULL;
+	CRichEditCtrlEx*	m_rich = NULL;
+	CMacProgressCtrl*	m_progress = NULL;
+	std::deque<CString>	m_content;
+};
 
 // CLogDiffDlg 대화 상자
 class CLogDiffDlg : public CDialogEx
@@ -16,11 +32,12 @@ class CLogDiffDlg : public CDialogEx
 public:
 	CLogDiffDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
 
-	std::deque<CString>				m_files;
-	std::deque<CSCEdit*>			m_title;		//문서 타이틀
-	std::deque<CRichEditCtrlEx*>	m_rich;
+	//std::deque<CString>				m_files;
+	//std::deque<CSCEdit*>			m_title;		//문서 타이틀
+	//std::deque<CRichEditCtrlEx*>	m_rich;
+	//std::deque<std::deque<CString>>	m_content;		//
 
-	std::deque<std::deque<CString>>	m_content;		//
+	std::deque<CLogDiffFile>		m_doc;
 
 	CRichEditCtrlEx*				m_context_menu_hwnd = NULL;
 	int								m_context_menu_doc_index = -1;
@@ -30,8 +47,10 @@ public:
 		timer_id_initial_focus = 0,
 	};
 
-	void							open_files();
-	void							release();
+	void							open_file(int index);
+	void							thread_parse_log(int index);
+
+	void							release(int index = -1);
 
 	void							arrange_layout();
 
@@ -79,4 +98,7 @@ public:
 	afx_msg void OnMenuSaveAs();
 	afx_msg void OnMenuCurrentFolder();
 	afx_msg void OnMenuSort();
+	afx_msg void OnMenuCloseDoc();
+	afx_msg void OnMenuCloseDocAll();
+	CMacProgressCtrl m_progress;
 };

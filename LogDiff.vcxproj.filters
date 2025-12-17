@@ -57,6 +57,9 @@
     <ClInclude Include="..\Common\data_types\CSCTime\SCTime.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\Common\CProgressCtrl\MacProgressCtrl\MacProgressCtrl.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LogDiff.cpp">
@@ -87,6 +90,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="..\Common\data_types\CSCTime\SCTime.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\CProgressCtrl\MacProgressCtrl\MacProgressCtrl.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

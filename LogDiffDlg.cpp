@@ -9,6 +9,8 @@
 #include "afxdialogex.h"
 
 #include <regex>
+#include <thread>
+
 #include "Common/Functions.h"
 
 #include "DateTimeOffsetDlg.h"
@@ -87,6 +89,8 @@ BEGIN_MESSAGE_MAP(CLogDiffDlg, CDialogEx)
 	ON_COMMAND(ID_MENU_SAVE_AS, &CLogDiffDlg::OnMenuSaveAs)
 	ON_COMMAND(ID_MENU_CURRENT_FOLDER, &CLogDiffDlg::OnMenuCurrentFolder)
 	ON_COMMAND(ID_MENU_SORT, &CLogDiffDlg::OnMenuSort)
+	ON_COMMAND(ID_MENU_CLOSE_DOC, &CLogDiffDlg::OnMenuCloseDoc)
+	ON_COMMAND(ID_MENU_CLOSE_DOC_ALL, &CLogDiffDlg::OnMenuCloseDocAll)
 END_MESSAGE_MAP()
 
 
@@ -126,12 +130,12 @@ BOOL CLogDiffDlg::OnInitDialog()
 
 	DragAcceptFiles();
 
-#if 1
+#if 0
 	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log"));
 	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log"));
 	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log"));
 	open_files();
-#else
+#elif 0
 	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMViewer.log"));
 	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMAgentService.log"));
 	open_files();
@@ -214,20 +218,55 @@ void CLogDiffDlg::OnBnClickedCancel()
 	CDialogEx::OnCancel();
 }
 
-void CLogDiffDlg::release()
+void CLogDiffDlg::release(int index)
 {
-	for (int i = 0; i < m_rich.size(); i++)
+	if (index < 0 || index >= m_doc.size())
 	{
-		m_rich[i]->DestroyWindow();
-		delete m_rich[i];
+		for (int i = 0; i < m_doc.size(); i++)
+		{
+			if (m_doc[i].m_rich)
+			{
+				m_doc[i].m_rich->DestroyWindow();
+				delete m_doc[i].m_rich;
+			}
 
-		m_title[i]->DestroyWindow();
-		delete m_title[i];
+			if (m_doc[i].m_title)
+			{
+				m_doc[i].m_title->DestroyWindow();
+				delete m_doc[i].m_title;
+			}
+
+			if (m_doc[i].m_progress)
+			{
+				m_doc[i].m_progress->DestroyWindow();
+				delete m_doc[i].m_progress;
+			}
+		}
+
+		m_doc.clear();
 	}
+	else
+	{
+		if (m_doc[index].m_rich)
+		{
+			m_doc[index].m_rich->DestroyWindow();
+			delete m_doc[index].m_rich;
+		}
 
-	m_rich.clear();
-	m_title.clear();
-	m_content.clear();
+		if (m_doc[index].m_title)
+		{
+			m_doc[index].m_title->DestroyWindow();
+			delete m_doc[index].m_title;
+		}
+
+		if (m_doc[index].m_progress)
+		{
+			m_doc[index].m_progress->DestroyWindow();
+			delete m_doc[index].m_progress;
+		}
+
+		m_doc.erase(m_doc.begin() + index);
+	}
 }
 
 void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
@@ -237,7 +276,7 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 	int count = DragQueryFile(hDropInfo, 0xffffffff, NULL, 0);
 
 	if (!IsCtrlPressed())
-		m_files.clear();
+		release();
 
 	for (int i = 0; i < count; i++)
 	{
@@ -246,73 +285,118 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 		if (PathIsDirectory(sfile))
 			continue;
 
-		m_files.push_back(sfile);
-	}
-
-	open_files();
-
-	CDialogEx::OnDropFiles(hDropInfo);
-}
-
-//m_files에 채워진 파일들을 로딩한다.
-void CLogDiffDlg::open_files()
-{
-	release();
-
-	if (m_files.size() == 0)
-		return;
-
-	m_content.resize(m_files.size());
-
-	for (int i = 0; i < m_files.size(); i++)
-	{
-		CRichEditCtrlEx* rich = new CRichEditCtrlEx();
-		rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_NOHIDESEL | ES_READONLY |
-					 WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
-			CRect(0, 0, 1, 1), this, 0);
-		rich->use_popup_menu(false);
-		rich->ShowTimeInfo(false);
-		CFont* font = GetFont();
-		rich->SetFont(font);
-		rich->add_keyword_format(CSCKeywordFormat(_T("error"), red, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("에러"), red, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("fail"), red, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("실패"), red, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("warning"), orange, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("경고"), orange, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("success"), royalblue, true));
-		rich->add_keyword_format(CSCKeywordFormat(_T("성공"), royalblue, true));
-		rich->set_font_size(10);
-		//rich->set_font_name(_T("Consolas"));
-		rich->set_font_name(_T("Noto Sans KR"));
-		read_file(m_files[i], &m_content[i]);
-		rich->set_text(&m_content[i]);
-		rich->SetOptions(ECOOP_XOR, ECO_SAVESEL);
-		m_rich.push_back(rich);
-
-		//문서 타이틀 표시
-		//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
-		CSCEdit* edit = new CSCEdit();
-		edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
-		edit->SetFont(font);
-		edit->set_font_name(_T("Consolas"));// (_T("Noto Sans KR"));
-		edit->set_font_size(10);
-		edit->set_font_weight(700);
-		edit->set_text(m_files[i]);
-		edit->set_text_color(Gdiplus::Color::RoyalBlue);
-		edit->set_back_color(Gdiplus::Color::Ivory);// get_sys_color(COLOR_3DFACE));
-		edit->set_use_readonly_color(false);
-		edit->set_line_align(DT_VCENTER);
-		m_title.push_back(edit);
+		m_doc.push_back(CLogDiffFile(sfile));
+		open_file(m_doc.size() - 1);
+		::SendMessage(m_doc.back().m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc.back().m_rich->m_hWnd));
 	}
 
 	//파일수에 따라 레이아웃을 재조정한다.
 	arrange_layout();
 
+	Wait(100);
+
+	for (int i = 0; i < m_doc.size(); i++)
+	{
+		::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc[i].m_rich->m_hWnd));
+		Wait(10);
+		std::thread th(&CLogDiffDlg::thread_parse_log, this, m_doc.size() - 1);
+		th.detach();
+	}
+
+	//for (auto doc : m_doc)
+	//	::SendMessage(doc.m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(doc.m_rich->m_hWnd));
+
 	//맨 처음 파일을 연 후에는 바로 정렬하지 않는다.
 	//처음 실행 후 파일 내용을 표시한 후에는 drag&drop 등의 액션으로 파일이 추가되거나 빠지거나 달라지면
 	//그 때는 바로 정렬을 수행한다.
 	//arrange_logs_by_timestamp();
+
+
+	CDialogEx::OnDropFiles(hDropInfo);
+}
+
+void CLogDiffDlg::thread_parse_log(int index)
+{
+	if (index < 0 || index >= m_doc.size())
+		return;
+	
+	//파싱 속도때문에 파일을 열 때는 파일내용 전체를 rich에 출력했으나 출력한 후에는 파싱하고
+	//각 라인별로 m_content에 넣어줘야 한다.
+	CString str;
+
+	m_doc[index].m_rich->GetWindowText(str);
+
+	int total_lines = m_doc[index].m_rich->GetLineCount();
+
+	m_doc[index].m_progress->SetRange(0, total_lines);
+
+	for (int i = 0; i < m_doc.size(); i++)
+		m_doc[i].m_progress->ShowWindow(SW_SHOW);
+
+
+	for (int i = 0; i < total_lines; i++)
+	{
+		m_doc[index].m_progress->SetPos(i + 1);
+
+		CString line;
+		int len = m_doc[index].m_rich->GetLine(i, line.GetBufferSetLength(4096), 4096);
+		line.ReleaseBuffer(len);
+		m_doc[index].m_content.push_back(line);
+	}
+
+	m_doc[index].m_rich->ClearAll();
+	m_doc[index].m_rich->set_text(&m_doc[index].m_content);
+
+	TRACE(_T("thread_parse_log() terminated\n"));
+}
+
+//m_files에 채워진 파일들을 로딩한다.
+void CLogDiffDlg::open_file(int index)
+{
+	CRichEditCtrlEx* rich = new CRichEditCtrlEx();
+	rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_NOHIDESEL | ES_READONLY |
+					WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
+		CRect(0, 0, 1, 1), this, 0);
+	rich->use_popup_menu(false);
+	rich->ShowTimeInfo(false);
+	CFont* font = GetFont();
+	rich->SetFont(font);
+	rich->add_keyword_format(CSCKeywordFormat(_T("error"), red, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("에러"), red, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("fail"), red, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("실패"), red, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("warning"), orange, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("경고"), orange, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("success"), royalblue, true));
+	rich->add_keyword_format(CSCKeywordFormat(_T("성공"), royalblue, true));
+	rich->set_font_size(10);
+	//rich->set_font_name(_T("Consolas"));
+	CString str = read(m_doc[index].m_file);
+	rich->SetWindowText(str);
+	rich->set_font_name(_T("Noto Sans KR"));
+	//read_file(m_doc[index].m_file, &(m_doc[index].m_content));
+	//rich->set_text(&m_doc[index].m_content);
+	rich->SetOptions(ECOOP_XOR, ECO_SAVESEL);
+	m_doc[index].m_rich = rich;
+
+	//문서 타이틀 표시
+	//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
+	CSCEdit* edit = new CSCEdit();
+	edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
+	edit->SetFont(font);
+	edit->set_font_name(_T("Consolas"));// (_T("Noto Sans KR"));
+	edit->set_font_size(10);
+	edit->set_font_weight(700);
+	edit->set_text(m_doc[index].m_file);
+	edit->set_text_color(Gdiplus::Color::RoyalBlue);
+	edit->set_back_color(Gdiplus::Color::Ivory);// get_sys_color(COLOR_3DFACE));
+	edit->set_use_readonly_color(false);
+	edit->set_line_align(DT_VCENTER);
+	m_doc[index].m_title = edit;
+
+	CMacProgressCtrl* progress = new CMacProgressCtrl();
+	progress->Create(WS_CHILD | WS_VISIBLE, CRect(0, 0, 1, 1), this, 2);
+	m_doc[index].m_progress = progress;
 }
 
 void CLogDiffDlg::arrange_layout()
@@ -320,27 +404,35 @@ void CLogDiffDlg::arrange_layout()
 	CRect rc;
 	GetClientRect(rc);
 
-	if (m_rich.size() == 0)
+	if (m_doc.size() == 0)
 		return;
 
 	int gap = 8;
 	int edit_height = 32;
+	int progress_height = 6;
 	CSize m_sz_scrollbar(24, rc.Height());
 	CRect margin(8, 8, 8, 8);
 
-	int w = (rc.Width() - (m_rich.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_rich.size();
+	int w = (rc.Width() - (m_doc.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_doc.size();
 
 	CRect rtitle = CRect(margin.left, margin.top, margin.left + w, margin.top + edit_height);
-	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom);
+	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom - progress_height);
+	CRect rprogress = CRect(margin.left, rrich.bottom + 2, margin.left + w, rrich.bottom + 2 + progress_height);
 
-	for (int i = 0; i < m_rich.size(); i++)
+	for (int i = 0; i < m_doc.size(); i++)
 	{
-		m_rich[i]->MoveWindow(rrich);
+		m_doc[i].m_rich->MoveWindow(rrich);
 		rrich.OffsetRect(w + gap, 0);
 
-		m_title[i]->MoveWindow(rtitle);
+		m_doc[i].m_title->MoveWindow(rtitle);
 		rtitle.OffsetRect(w + gap, 0);
+
+		m_doc[i].m_progress->MoveWindow(rprogress);
+		rprogress.OffsetRect(w + gap, 0);
 	}
+
+	//for (int i = 0; i < m_doc.size(); i++)
+	//	m_doc[i].m_progress->ShowWindow(SW_HIDE);
 }
 
 void CLogDiffDlg::OnSize(UINT nType, int cx, int cy)
@@ -409,15 +501,15 @@ void CLogDiffDlg::sync_scroll(MSG* pMsg)
 	int vpos = rich->GetScrollPos(SB_VERT);
 	//TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
 
-	for (int i = 0; i < m_rich.size(); i++)
+	for (int i = 0; i < m_doc.size(); i++)
 	{
-		if (rich == m_rich[i])
+		if (rich == m_doc[i].m_rich)
 			continue;
 
 		if (pMsg->message == WM_MOUSEHWHEEL || pMsg->message == WM_HSCROLL)
-			::SendMessage(m_rich[i]->m_hWnd, WM_HSCROLL, MAKEWPARAM(SB_THUMBPOSITION, hpos), (LPARAM)(m_rich[i]->m_hWnd));
+			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_HSCROLL, MAKEWPARAM(SB_THUMBPOSITION, hpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 		else if (pMsg->message == WM_MOUSEWHEEL || pMsg->message == WM_VSCROLL)
-			::SendMessage(m_rich[i]->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_rich[i]->m_hWnd));
+			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 	}
 }
 
@@ -446,22 +538,22 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 
 	int i, j;
 
-	for (i = 0; i < m_content.size(); i++)
+	for (i = 0; i < m_doc.size(); i++)
 	{
 		CSCTime prev_timestamp;
 
-		for (j = 0; j < m_content[i].size(); j++)
+		for (j = 0; j < m_doc[i].m_content.size(); j++)
 		{
 			//만약 공백이나 timestamp가 없는 라인이라면 timestamp는 이전값보다 ms를 1만큼 큰 값으로 변경해준다.
 			//그래야만 정렬시에 그 위치가 유지된다.
-			CString log = m_content[i][j];
-			CSCTime time_stamp(m_content[i][j]);
+			CString log = m_doc[i].m_content[j];
+			CSCTime time_stamp(m_doc[i].m_content[j]);
 
 			if (j > 0 && time_stamp.is_empty())
 			{
 				time_stamp = prev_timestamp + CSCTime(0, 0, 0, 0, 0, 0, 1);
 			}
-			list.push_back(CForSortLog(i, time_stamp, m_content[i][j]));
+			list.push_back(CForSortLog(i, time_stamp, m_doc[i].m_content[j]));
 			prev_timestamp = time_stamp;
 		}
 	}
@@ -472,6 +564,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			return (a.time_stamp < b.time_stamp);
 		});
 
+	/*
 	FILE* fp = NULL;
 	_tfopen_s(&fp, _T("D:\\log_list_before_adjust.txt"), _T("wt")CHARSET);
 	for (i = 0; i < list.size(); i++)
@@ -480,6 +573,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	}
 
 	fclose(fp);
+	*/
 
 	//0 ~ n까지 순차적으로 나타나는지 체크한다.
 	//만약 index가 0 1 2로 순차적으로 나타나야 하는데 0 1 1이었다면 두번째에 있는 1 뒤에 2번 항목으로 공백을 추가시켜준다.
@@ -510,7 +604,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 		i++;
 		sequence++;
 
-		if (sequence == m_rich.size())
+		if (sequence == m_doc.size())
 			sequence = 0;
 
 		//index i가 list.size()에 도달하면 종료시킨다.
@@ -518,6 +612,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			break;
 	}
 
+	/*
 	fp = NULL;
 	_tfopen_s(&fp, _T("D:\\log_list_after_adjust.txt"), _T("wt")CHARSET);
 	for (i = 0; i < list.size(); i++)
@@ -526,18 +621,18 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	}
 
 	fclose(fp);
-
+	*/
 
 	//위에서 보정된 list를 각 content에 순차적으로 넣어준다.
 	//우선 기존 content를 모두 clear하고
-	for (i = 0; i < m_content.size(); i++)
-		m_content[i].clear();
+	for (i = 0; i < m_doc.size(); i++)
+		m_doc[i].m_content.clear();
 
 	for (i = 0; i < list.size(); i++)
-		m_content[list[i].index].push_back(list[i].full_log);
+		m_doc[list[i].index].m_content.push_back(list[i].full_log);
 
-	for (i = 0; i < m_rich.size(); i++)
-		m_rich[i]->set_text(&m_content[i]);
+	for (i = 0; i < m_doc.size(); i++)
+		m_doc[i].m_rich->set_text(&m_doc[i].m_content);
 
 	/*
 	//각 라인 인덱스를 증가시키면서 timestamp를 추출하고 비교하여 timestamp 순으로 출력시킨다.
@@ -558,7 +653,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			max_line_index = i;
 		}
 
-		m_rich[i]->SetRedraw(FALSE);
+		m_doc[i].m_rich->SetRedraw(FALSE);
 	}
 
 	//while문을 돌면서 각 로그의 현재 라인 로그 시각을 추출하고
@@ -618,7 +713,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 
 	for (i = 0; i < m_rich.size(); i++)
 	{
-		m_rich[i]->SetRedraw(TRUE);
+		m_doc[i].m_rich->SetRedraw(TRUE);
 	}
 
 	*/
@@ -631,12 +726,12 @@ void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
 	{
 		KillTimer(timer_id_initial_focus);
 
-		for (int i = 0; i < m_rich.size(); i++)
+		for (int i = 0; i < m_doc.size(); i++)
 		{
-			m_rich[i]->SetSel(-1, 0);
+			m_doc[i].m_rich->SetSel(-1, 0);
 			//Wait(1000);
 			//m_rich[0]->LineScroll(0);	//왜 이 함수호출로는 안먹히고 SendMessage()는 동작하는지...
-			::SendMessage(m_rich[i]->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_rich[i]->m_hWnd));
+			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 		}
 	}
 
@@ -679,9 +774,9 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	//std::regex datetime_pattern("([0-9]{4})[-/]([0-9]{2})[-/]([0-9]{2})[ ]*([0-9]{2})[:]([0-9]{2})[:]([0-9]{2})");
 	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
 
-	for (int i = 0; i < m_content[index].size(); i++)
+	for (int i = 0; i < m_doc[index].m_content.size(); i++)
 	{
-		line = m_content[index][i];
+		line = m_doc[index].m_content[i];
 
 		if (line.IsEmpty() || (line.GetLength() == 1 && line.Right(1) == '\n'))
 		{
@@ -718,7 +813,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 
 				//다시 라인에 반영
 				CString new_datetime_str = time_current_log.to_string();
-				m_content[index][i] = prefix + new_datetime_str + suffix;
+				m_doc[index].m_content[i] = prefix + new_datetime_str + suffix;
 			}
 			else if(dlg.m_method == method_specific_datetime)
 			{
@@ -740,7 +835,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 
 				//다시 라인에 반영
 				CString new_datetime_str = time_current_log.to_string();
-				m_content[index][i] = prefix + new_datetime_str + suffix;
+				m_doc[index].m_content[i] = prefix + new_datetime_str + suffix;
 			}
 		}
 		else
@@ -750,7 +845,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	}
 
 	//변경된 내용을 다시 rich에 적용시킨다.
-	m_rich[index]->set_text(&m_content[index]);
+	m_doc[index].m_rich->set_text(&m_doc[index].m_content);
 
 	arrange_logs_by_timestamp();
 }
@@ -759,11 +854,16 @@ void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
 {
 	m_context_menu_hwnd = (CRichEditCtrlEx*)pWnd;
 
-	auto it = std::find(m_rich.begin(), m_rich.end(), m_context_menu_hwnd);
-	if (it == m_rich.end())
+	auto it = std::find_if(m_doc.begin(), m_doc.end(),
+		[&](const CLogDiffFile& doc)
+		{
+			return (doc.m_rich == m_context_menu_hwnd);
+		});
+
+	if (it == m_doc.end())
 		return;
 
-	m_context_menu_doc_index = std::distance(m_rich.begin(), it);
+	m_context_menu_doc_index = std::distance(m_doc.begin(), it);
 
 
 	CMenu menu;
@@ -778,43 +878,59 @@ void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
 void CLogDiffDlg::OnMenuSave()
 {
 	int index = m_context_menu_doc_index;
-	if (index < 0 || index >= m_files.size())
+	if (index < 0 || index >= m_doc.size())
 		return;
 
-	m_rich[index]->save(m_files[index]);
+	m_doc[index].m_rich->save(m_doc[index].m_file);
 }
 
 void CLogDiffDlg::OnMenuSaveAs()
 {
 	int index = m_context_menu_doc_index;
-	if (index < 0 || index >= m_files.size())
+	if (index < 0 || index >= m_doc.size())
 		return;
 
-	CFileDialog dlg(FALSE, get_part(m_files[index], fn_ext), m_files[index], OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, _T("Log Files (*.log)|*.log|All Files (*.*)|*.*||"), this);
+	CFileDialog dlg(FALSE, get_part(m_doc[index].m_file, fn_ext), m_doc[index].m_file, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, _T("Log Files (*.log)|*.log|All Files (*.*)|*.*||"), this);
 	if (dlg.DoModal() != IDOK)
 		return;
 
-	if (m_rich[index]->save(dlg.GetPathName()) == false)
+	if (m_doc[index].m_rich->save(dlg.GetPathName()) == false)
 	{
 		AfxMessageBox(dlg.GetPathName() + _T("\n\n파일 저장 실패"), MB_ICONSTOP);
 		return;
 	}
 
 	//파일명 정보를 갱신한다.
-	m_files[index] = dlg.GetPathName();
-	m_title[index]->set_text(dlg.GetPathName());
+	m_doc[index].m_file = dlg.GetPathName();
+	m_doc[index].m_title->set_text(dlg.GetPathName());
 }
 
 void CLogDiffDlg::OnMenuCurrentFolder()
 {
 	int index = m_context_menu_doc_index;
-	if (index < 0 || index >= m_files.size())
+	if (index < 0 || index >= m_doc.size())
 		return;
 
-	ShellExecute(NULL, _T("open"), _T("explorer"), _T("/select,") + m_files[index], NULL, SW_SHOW);
+	ShellExecute(NULL, _T("open"), _T("explorer"), _T("/select,") + m_doc[index].m_file, NULL, SW_SHOW);
 }
 
 void CLogDiffDlg::OnMenuSort()
 {
 	arrange_logs_by_timestamp();
+}
+
+void CLogDiffDlg::OnMenuCloseDoc()
+{
+	int index = m_context_menu_doc_index;
+	if (index < 0 || index >= m_doc.size())
+		return;
+
+	release(index);
+	arrange_layout();
+}
+
+void CLogDiffDlg::OnMenuCloseDocAll()
+{
+	release();
+	arrange_layout();
 }
