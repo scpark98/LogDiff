@@ -1,0 +1,64 @@
+﻿[2025/10/30 11:56:13.866][CLmmLauncherApp::regist_UrlScheme][406] start
+[2025/10/30 11:56:13.891][CLmmLauncherApp::regist_UrlScheme][442] end
+[2025/10/30 11:56:13.907][CLmmLauncherApp::InitInstance][118] m_uri_params = manuallauncher.lmm.service://param=LMM_CONTROL-RC-b4cf3f3509f42d5bb1e049bba39438e9b034435a-1047C1612FEA4659016489704-2451-1-270788173-
+
+[2025/10/30 11:56:13.922][CSCLog::write_start_log][118] ==================== Program Start ====================
+[2025/10/30 11:56:13.938][CSCLog::write_start_log][121] file version = 2025.2.12.1
+[2025/10/30 11:56:13.956][CSCLog::write_start_log][125] built datetime = 2025-02-12 11:21:17
+[2025/10/30 11:56:13.971][CSCLog::write_start_log][127] log path = C:\Users\Public\Documents\LinkMeMine\Log\ManualLauncher\ManualLauncher_20251030.log
+[2025/10/30 11:56:13.983][CLmmLauncherApp::check_new_version_itself][501] get_server_version for self patch.
+[2025/10/30 11:56:14.304][CLmmLauncherApp::check_new_version_itself][573] status = 200. full_url = https://api.linkmemine.com:443/download/lmmviewer/1.0.3.9/ManualLauncher.exe.zip
+[2025/10/30 11:56:14.882][CLmmLauncherApp::check_new_version_itself][612] local : 2025.2.12.1, server : 2025.2.12.1. skip self_update().
+[2025/10/30 11:56:15.450][CLmmLauncherDlg::get_local_version][447] 로컬 버전 : 1.0.3.9
+[2025/10/30 11:56:15.484][CLmmLauncherDlg::get_server_version][465] https://api.linkmemine.com:443/download/lmmviewer/version.html
+[2025/10/30 11:56:15.498][CLmmLauncherDlg::get_server_version][544] 서버 버전 : 1.0.3.9
+[2025/10/30 11:56:15.512][CLmmLauncherDlg::get_server_filelist][555] 서버에 filelist.lst를 요청합니다...
+[2025/10/30 11:56:15.749][CLmmLauncherDlg::download_server_files][786] MobileViewer.exe (1/23) : skip
+[2025/10/30 11:56:15.849][CLmmLauncherDlg::download_server_files][786] KRecorderWMV.exe (2/23) : skip
+[2025/10/30 11:56:15.980][CLmmLauncherDlg::download_server_files][786] nFTDServer2.exe (3/23) : skip
+[2025/10/30 11:56:16.098][CLmmLauncherDlg::download_server_files][786] nFTDClient2.exe (4/23) : skip
+[2025/10/30 11:56:16.115][CLmmLauncherDlg::download_server_files][786] LMMViewer.exe (5/23) : skip
+[2025/10/30 11:56:16.132][CLmmLauncherDlg::download_server_files][786] ManualLauncher.exe (6/23) : skip
+[2025/10/30 11:56:16.249][CLmmLauncherDlg::download_server_files][786] KoinoCheckerL.exe (7/23) : skip
+[2025/10/30 11:56:16.349][CLmmLauncherDlg::download_server_files][786] nFTDServer.exe (8/23) : skip
+[2025/10/30 11:56:16.449][CLmmLauncherDlg::download_server_files][786] nFTDClient.exe (9/23) : skip
+[2025/10/30 11:56:16.465][CLmmLauncherDlg::download_server_files][786] hook.dll (10/23) : skip
+[2025/10/30 11:56:16.482][CLmmLauncherDlg::download_server_files][786] KPlayer.exe (11/23) : skip
+[2025/10/30 11:56:16.499][CLmmLauncherDlg::download_server_files][786] kprofile.prx (12/23) : skip
+[2025/10/30 11:56:16.515][CLmmLauncherDlg::download_server_files][786] kprofile2.prx (13/23) : skip
+[2025/10/30 11:56:16.531][CLmmLauncherDlg::download_server_files][786] kprofile3.prx (14/23) : skip
+[2025/10/30 11:56:16.573][CLmmLauncherDlg::download_server_files][786] KRecorder.exe (15/23) : skip
+[2025/10/30 11:56:16.587][CLmmLauncherDlg::download_server_files][786] mfc100u.dll (16/23) : skip
+[2025/10/30 11:56:16.599][CLmmLauncherDlg::download_server_files][786] msvcp100.dll (17/23) : skip
+[2025/10/30 11:56:16.599][CLmmLauncherDlg::download_server_files][786] msvcr100.dll (18/23) : skip
+[2025/10/30 11:56:16.616][CLmmLauncherDlg::download_server_files][786] nFTDClientDll.dll (19/23) : skip
+[2025/10/30 11:56:17.032][CLmmLauncherDlg::download_server_files][786] nFTDServerDll.dll (20/23) : skip
+[2025/10/30 11:56:17.047][CLmmLauncherDlg::download_server_files][786] nSSDClient.exe (21/23) : skip
+[2025/10/30 11:56:17.149][CLmmLauncherDlg::download_server_files][786] nSSDServer.exe (22/23) : skip
+[2025/10/30 11:56:17.165][CLmmLauncherDlg::download_server_files][786] programtype.ini (23/23) : skip
+
+[2025/10/30 11:56:17.182][CLmmLauncherDlg::download_server_files][940] 전체 : 23  패치 : 0  동일 : 23  실패 : 0
+
+[2025/10/30 11:56:17.199][CLmmLauncherDlg::parse_browser_title][280] theApp.m_uri_params = manuallauncher.lmm.service://param=LMM_CONTROL-RC-b4cf3f3509f42d5bb1e049bba39438e9b034435a-1047C1612FEA4659016489704-2451-1-270788173-
+[2025/10/30 11:56:17.199][CLmmLauncherDlg::parse_browser_title][364] url params after remove prefix = LMM_CONTROL-RC-b4cf3f3509f42d5bb1e049bba39438e9b034435a-1047C1612FEA4659016489704-2451-1-270788173-
+[2025/10/30 11:56:17.215][CLmmLauncherDlg::parse_browser_title][425] param[0] = LMM_CONTROL
+[2025/10/30 11:56:17.232][CLmmLauncherDlg::parse_browser_title][425] param[1] = RC
+[2025/10/30 11:56:17.247][CLmmLauncherDlg::parse_browser_title][425] param[2] = b4cf3f3509f42d5bb1e049bba39438e9b034435a
+[2025/10/30 11:56:17.248][CLmmLauncherDlg::parse_browser_title][425] param[3] = 1047C1612FEA4659016489704
+[2025/10/30 11:56:17.265][CLmmLauncherDlg::parse_browser_title][425] param[4] = 2451
+[2025/10/30 11:56:17.281][CLmmLauncherDlg::parse_browser_title][425] param[5] = 1
+[2025/10/30 11:56:17.282][CLmmLauncherDlg::parse_browser_title][425] param[6] = 270788173
+[2025/10/30 11:56:17.417][CLmmLauncherDlg::get_api_server_info][636] get_api_server_info(). full_url = https://api.linkmemine.com:443/launcher/api/v1.0/remote_session/1047C1612FEA4659016489704
+[2025/10/30 11:56:17.440][CLmmLauncherDlg::get_api_server_info][650] result = {"status": 200, "api": "RemoteSessionAPI", "meta": null, "objects": [{"csharp_api_port": 80, "kms_addr": "kms.linkmemine.com", "n2nport": 80, "rc_auth": 1, "n2nserver": "ap2p.linkmemine.com", "filetransfer_speed": 1024000, "user_id": "apple", "ft_auth": 1, "csharp_api_addr": "netapi.linkmemine.com", "device_name": "SCPARK-KOINO", "input_lock": 0, "admin_auth": 1, "kms_port": 80, "user_name": "엄태찬"}]}
+
+[2025/10/30 11:56:17.664][CLmmLauncherDlg::thread_launcher][1239] 모든 파일이 최신 버전입니다.
+잠시 후 설정된 프로그램이 실행됩니다...
+[2025/10/30 11:56:17.665][CLmmLauncherDlg::run_lmmviewer][1062] execute program : C:\Users\Public\Documents\LinkMeMine\LMMViewer\LMMLauncher\LMMViewer.exe
+[2025/10/30 11:56:17.682][CLmmLauncherDlg::run_lmmviewer][1063] params = AP2P RC kms.linkmemine.com 80 047C1612FEA4659016489704 apple TRUE 1 1 1 0 1 "엄태찬" b4cf3f3509f42d5bb1e049bba39438e9b034435a 2451 ap2p.linkmemine.com 80 netapi.linkmemine.com 80 "SCPARK-KOINO" 1 0 api.linkmemine.com 443
+
+[2025/10/30 11:56:17.762][CLmmLauncherApp::self_update][350] not exist a new launcher or patcher. skip.
+[2025/10/30 11:56:17.784][CLmmLauncherApp::self_delete][286]  
+[2025/10/30 11:56:17.815][CSCLog::write_end_log][133] ==================== Program Exit ====================
+
+[2025/10/30 11:56:17.832][CSCLog::write_end_log][133] ==================== Program Exit ====================
+
