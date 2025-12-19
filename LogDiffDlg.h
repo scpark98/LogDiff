@@ -6,23 +6,37 @@
 
 #include <deque>
 #include "Common/CEdit/SCEdit/SCEdit.h"
-#include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
+#include "Common/CEdit/Scintilla/ScintillaCtrl.h"
 #include "Common/data_types/CSCTime/SCTime.h"
 #include "Common/CProgressCtrl/MacProgressCtrl/MacProgressCtrl.h"
+
+using namespace Scintilla;
+
+enum {
+	INDIC_ERROR = 0,
+	INDIC_FAIL,
+	INDIC_WARN = 1,
+};
+
+struct KeywordStyle {
+	const char* text;
+	int indicator;
+	COLORREF cr;
+};
 
 class CLogDiffFile
 {
 public:
-	CLogDiffFile(CString file, CSCEdit* title = NULL, CRichEditCtrlEx* rich = NULL)
+	CLogDiffFile(CString file, CSCEdit* title = NULL, CScintillaCtrl* rich = NULL)
 		: m_file(file), m_title(title), m_rich(rich)
 	{
 	}
 
 	CString				m_file;
 	CSCEdit*			m_title = NULL;
-	CRichEditCtrlEx*	m_rich = NULL;
+	CScintillaCtrl*		m_rich = NULL;
 	CMacProgressCtrl*	m_progress = NULL;
-	std::deque<CString>	m_content;
+	//std::deque<CString>	m_content;
 };
 
 // CLogDiffDlg 대화 상자
@@ -32,14 +46,9 @@ class CLogDiffDlg : public CDialogEx
 public:
 	CLogDiffDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
 
-	//std::deque<CString>				m_files;
-	//std::deque<CSCEdit*>			m_title;		//문서 타이틀
-	//std::deque<CRichEditCtrlEx*>	m_rich;
-	//std::deque<std::deque<CString>>	m_content;		//
-
 	std::deque<CLogDiffFile>		m_doc;
 
-	CRichEditCtrlEx*				m_context_menu_hwnd = NULL;
+	CScintillaCtrl*					m_context_menu_hwnd = NULL;
 	int								m_context_menu_doc_index = -1;
 
 	enum TIMER_ID
@@ -47,16 +56,23 @@ public:
 		timer_id_initial_focus = 0,
 	};
 
+	//m_file에 명시된 파일들을 순차적으로 open한다.
+	void							open_files();
+	//m_file의 각 파일들을 개별 open
 	void							open_file(int index);
-	void							thread_parse_log(int index);
-
-	void							release(int index = -1);
+	void							set_default_styles(CScintillaCtrl* rich);
+	void							init_keyword_style(CScintillaCtrl* rich);
+	void							highlight_keyword(CScintillaCtrl* rich, int indicator);
 
 	void							arrange_layout();
+	void							release(int index = -1);
 
 	CSCTime							get_time_stamp(CString log_line);
 
 	void							arrange_logs_by_timestamp();
+
+	//윈도우 기본 scroll event로는 제대로 catch되지 않으므로 미리 기억하고 동기화해야 함.
+	bool							m_scroll_syncing = false;
 
 	void							sync_scroll(MSG* pMsg);
 	LRESULT							on_message_CRichEditCtrlEx(WPARAM wParam, LPARAM lParam);
@@ -100,5 +116,6 @@ public:
 	afx_msg void OnMenuSort();
 	afx_msg void OnMenuCloseDoc();
 	afx_msg void OnMenuCloseDocAll();
+	BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
 	CMacProgressCtrl m_progress;
 };

@@ -77,22 +77,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>bin/</OutDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;D:\1.Projects_C++\Common\CEdit\Scintilla\scintilla\include;D:\1.Projects_C++\Common\CEdit\Scintilla\lexilla\include;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>bin/</OutDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;D:\1.Projects_C++\Common\CEdit\Scintilla\scintilla\include;D:\1.Projects_C++\Common\CEdit\Scintilla\lexilla\include;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>bin/</OutDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;D:\1.Projects_C++\Common\CEdit\Scintilla\scintilla\include;D:\1.Projects_C++\Common\CEdit\Scintilla\lexilla\include;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>bin/</OutDir>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);D:\1.Projects_C++;D:\1.Projects_C++\Common\CEdit\Scintilla\scintilla\include;D:\1.Projects_C++\Common\CEdit\Scintilla\lexilla\include;</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -195,8 +195,9 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.h" />
     <ClInclude Include="..\Common\CEdit\SCEdit\SCEdit.h" />
+    <ClInclude Include="..\Common\CEdit\Scintilla\ScintillaCtrl.h" />
+    <ClInclude Include="..\Common\CEdit\Scintilla\Scintilla_init.h" />
     <ClInclude Include="..\Common\colors.h" />
     <ClInclude Include="..\Common\CProgressCtrl\MacProgressCtrl\MacProgressCtrl.h" />
     <ClInclude Include="..\Common\data_types\CSCTime\SCTime.h" />
@@ -211,13 +212,13 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.cpp">
+    <ClCompile Include="..\Common\CEdit\SCEdit\SCEdit.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\Common\CEdit\SCEdit\SCEdit.cpp">
+    <ClCompile Include="..\Common\CEdit\Scintilla\ScintillaCtrl.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -267,7 +268,6 @@
     <ResourceCompile Include="LogDiff.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\Common\CEdit\RichEditCtrlEx\RTF sample.rtf" />
     <None Include="res\LogDiff.rc2" />
   </ItemGroup>
   <ItemGroup>

@@ -12,12 +12,19 @@
 #include <thread>
 
 #include "Common/Functions.h"
+#include "Common/CEdit/Scintilla/Scintilla_init.h"
 
 #include "DateTimeOffsetDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+
+KeywordStyle styles[] = {
+	{"error", INDIC_ERROR, RGB(220, 50, 47)},
+	{"fail", INDIC_FAIL, RGB(220, 50, 47)},
+	{"warn",  INDIC_WARN,  RGB(255, 140, 0)},
+};
 
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
@@ -126,18 +133,25 @@ BOOL CLogDiffDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+
+	init_lexilla_module(get_exe_directory(true));
+
 	RestoreWindowPosition(&theApp, this);
 
 	DragAcceptFiles();
 
 #if 0
-	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log"));
-	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log"));
-	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log"));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log")));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log")));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log")));
 	open_files();
 #elif 0
-	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMViewer.log"));
-	m_files.push_back(get_exe_directory() + _T("\\test_log_data\\LMMAgentService.log"));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LMMViewer.log")));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LMMAgentService.log")));
+	open_files();
+#elif 1
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LiveWebAgent[20251216].log")));
+	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LivewebClient16.log")));
 	open_files();
 #endif
 
@@ -286,104 +300,115 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 			continue;
 
 		m_doc.push_back(CLogDiffFile(sfile));
-		open_file(m_doc.size() - 1);
-		::SendMessage(m_doc.back().m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc.back().m_rich->m_hWnd));
 	}
 
-	//파일수에 따라 레이아웃을 재조정한다.
-	arrange_layout();
-
-	Wait(100);
-
-	for (int i = 0; i < m_doc.size(); i++)
-	{
-		::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc[i].m_rich->m_hWnd));
-		Wait(10);
-		std::thread th(&CLogDiffDlg::thread_parse_log, this, m_doc.size() - 1);
-		th.detach();
-	}
-
-	//for (auto doc : m_doc)
-	//	::SendMessage(doc.m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(doc.m_rich->m_hWnd));
-
-	//맨 처음 파일을 연 후에는 바로 정렬하지 않는다.
-	//처음 실행 후 파일 내용을 표시한 후에는 drag&drop 등의 액션으로 파일이 추가되거나 빠지거나 달라지면
-	//그 때는 바로 정렬을 수행한다.
-	//arrange_logs_by_timestamp();
-
+	open_files();
 
 	CDialogEx::OnDropFiles(hDropInfo);
 }
 
-void CLogDiffDlg::thread_parse_log(int index)
+void CLogDiffDlg::open_files()
 {
-	if (index < 0 || index >= m_doc.size())
-		return;
-	
-	//파싱 속도때문에 파일을 열 때는 파일내용 전체를 rich에 출력했으나 출력한 후에는 파싱하고
-	//각 라인별로 m_content에 넣어줘야 한다.
-	CString str;
-
-	m_doc[index].m_rich->GetWindowText(str);
-
-	int total_lines = m_doc[index].m_rich->GetLineCount();
-
-	m_doc[index].m_progress->SetRange(0, total_lines);
-
 	for (int i = 0; i < m_doc.size(); i++)
-		m_doc[i].m_progress->ShowWindow(SW_SHOW);
-
-
-	for (int i = 0; i < total_lines; i++)
 	{
-		m_doc[index].m_progress->SetPos(i + 1);
-
-		CString line;
-		int len = m_doc[index].m_rich->GetLine(i, line.GetBufferSetLength(4096), 4096);
-		line.ReleaseBuffer(len);
-		m_doc[index].m_content.push_back(line);
+		open_file(i);
+		//::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 	}
 
-	m_doc[index].m_rich->ClearAll();
-	m_doc[index].m_rich->set_text(&m_doc[index].m_content);
+	//파일수에 따라 레이아웃을 재조정한다.
+	arrange_layout();
+}
 
-	TRACE(_T("thread_parse_log() terminated\n"));
+void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
+{
+	COLORREF cr_back = ivory;// RGB(255, 0, 0);
+	rich->StyleSetFore(STYLE_DEFAULT, get_color_from_hexa_str(_T("DCDCCC")));
+	rich->StyleSetBack(STYLE_DEFAULT, get_color_from_hexa_str(_T("3F3F3F")));
+	rich->StyleSetSize(STYLE_DEFAULT, 10);
+	rich->StyleSetFont(STYLE_DEFAULT, "Consolas");
+
+	//StyleClearAll()을 호출해줘야 기본 글자색, 바탕색등이 제대로 표시된다.
+	rich->StyleClearAll();
+
+	//rich->SetILexer(m_pCLexer);
+
+	rich->SendMessage(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
+	int count = rich->GetLineCount();
+	CString sdigit = i2S(count);
+	int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
+	rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
+
+	rich->StyleSetFore(STYLE_LINENUMBER, get_color_from_hexa_str(_T("8A8A8A")));
+	rich->StyleSetBack(STYLE_LINENUMBER, get_color_from_hexa_str(_T("0C0C0C")));
+
+	rich->SetSelBack(TRUE, get_color_from_hexa_str(_T("585858")));
+	rich->SetSelFore(TRUE, get_color_from_hexa_str(_T("000000")));
+
+	rich->SetCaretFore(get_color_from_hexa_str(_T("DCDCCC")));
+	//rich->SetCaretLineBack(get_color_from_hexa_str(_T("DCDCCC")));
+
+	rich->SetExtraAscent(1);
+	rich->SetExtraDescent(1);
+
+	//rich->ClearCmdKey(SCK_ESCAPE);
+	//rich->ClearCmdKey(VK_ESCAPE);
+	//rich->ClearAllCmdKeys();
+
+	init_keyword_style(rich);
+	highlight_keyword(rich, 0);
+	highlight_keyword(rich, 1);
+	highlight_keyword(rich, 2);
+}
+
+void CLogDiffDlg::init_keyword_style(CScintillaCtrl* rich)
+{
+	int style_count = sizeof(styles) / sizeof(styles[0]);
+
+	for (int i = 0; i < style_count; i++)
+	{
+		rich->SendMessage(SCI_INDICSETSTYLE, i, INDIC_TEXTFORE);
+		rich->SendMessage(SCI_INDICSETFORE, i, styles[i].cr);
+	}
+}
+
+void CLogDiffDlg::highlight_keyword(CScintillaCtrl* rich, int indicator)
+{
+	int length = (int)rich->SendMessage(SCI_GETTEXTLENGTH, 0, 0);
+
+	rich->SendMessage(SCI_SETINDICATORCURRENT, indicator, 0);
+	rich->SendMessage(SCI_INDICATORCLEARRANGE, 0, length);
+
+	CString all_text = rich->GetText(length);
+	CString keyword(styles[indicator].text);
+
+	all_text.MakeLower();
+	keyword.MakeLower();
+	int pos = 0;
+
+	while ((pos = all_text.Find(keyword, pos)) != -1)
+	{
+		rich->SendMessage(SCI_INDICATORFILLRANGE, pos, keyword.GetLength());
+		pos += keyword.GetLength();
+	}
 }
 
 //m_files에 채워진 파일들을 로딩한다.
 void CLogDiffDlg::open_file(int index)
 {
-	CRichEditCtrlEx* rich = new CRichEditCtrlEx();
-	rich->Create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_WANTRETURN | ES_NOHIDESEL | ES_READONLY |
-					WS_HSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | ES_AUTOVSCROLL | WS_EX_STATICEDGE,
-		CRect(0, 0, 1, 1), this, 0);
-	rich->use_popup_menu(false);
-	rich->ShowTimeInfo(false);
-	CFont* font = GetFont();
-	rich->SetFont(font);
-	rich->add_keyword_format(CSCKeywordFormat(_T("error"), red, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("에러"), red, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("fail"), red, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("실패"), red, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("warning"), orange, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("경고"), orange, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("success"), royalblue, true));
-	rich->add_keyword_format(CSCKeywordFormat(_T("성공"), royalblue, true));
-	rich->set_font_size(10);
-	//rich->set_font_name(_T("Consolas"));
+	CScintillaCtrl* rich = new CScintillaCtrl();
+	rich->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER, CRect(0, 0, 1, 1), this, index);
+
 	CString str = read(m_doc[index].m_file);
-	rich->SetWindowText(str);
-	rich->set_font_name(_T("Noto Sans KR"));
-	//read_file(m_doc[index].m_file, &(m_doc[index].m_content));
-	//rich->set_text(&m_doc[index].m_content);
-	rich->SetOptions(ECOOP_XOR, ECO_SAVESEL);
+	rich->SetText(str);
 	m_doc[index].m_rich = rich;
+
+	set_default_styles(rich);
 
 	//문서 타이틀 표시
 	//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
 	CSCEdit* edit = new CSCEdit();
 	edit->create(WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_BORDER | ES_AUTOHSCROLL, CRect(0, 0, 1, 1), this, 1);
-	edit->SetFont(font);
+	edit->SetFont(GetFont());
 	edit->set_font_name(_T("Consolas"));// (_T("Noto Sans KR"));
 	edit->set_font_size(10);
 	edit->set_font_weight(700);
@@ -454,6 +479,16 @@ BOOL CLogDiffDlg::PreTranslateMessage(MSG* pMsg)
 		//TRACE(_T("PreTranslateMessage: pMsg->message = %d\n"), pMsg->message);
 		sync_scroll(pMsg);
 	}
+	else if (pMsg->message == WM_KEYDOWN)
+	{
+		switch (pMsg->wParam)
+		{
+			case VK_ESCAPE:
+				OnBnClickedCancel();
+				return TRUE;
+		}
+	}
+
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
@@ -495,12 +530,15 @@ BOOL CLogDiffDlg::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 void CLogDiffDlg::sync_scroll(MSG* pMsg)
 {
-	CRichEditCtrlEx* rich = (CRichEditCtrlEx*)CWnd::FromHandle(pMsg->hwnd);
+	CScintillaCtrl* rich = (CScintillaCtrl*)CWnd::FromHandle(pMsg->hwnd);
 
-	int hpos = rich->GetScrollPos(SB_HORZ);
-	int vpos = rich->GetScrollPos(SB_VERT);
-	//TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
+	//int hpos = rich->GetScrollPos(SB_HORZ);
+	//int vpos = rich->GetScrollPos(SB_VERT);
+	int hpos = rich->GetXOffset();
+	int vpos = rich->GetFirstVisibleLine();
+	TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
 
+	/*
 	for (int i = 0; i < m_doc.size(); i++)
 	{
 		if (rich == m_doc[i].m_rich)
@@ -511,6 +549,7 @@ void CLogDiffDlg::sync_scroll(MSG* pMsg)
 		else if (pMsg->message == WM_MOUSEWHEEL || pMsg->message == WM_VSCROLL)
 			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 	}
+	*/
 }
 
 class CForSortLog
@@ -530,6 +569,7 @@ public:
 
 void CLogDiffDlg::arrange_logs_by_timestamp()
 {
+#if 0
 	//문서 index와 시간문자열을 pair로 하여 리스트에 모두 넣고 시간값으로 정렬시킨다.
 	//0 ~ n까지 순차적으로 나타나는지 체크한다.
 	//만약 index가 0 1 2로 증가해야 하는데 0 1 1이었다면 2번에 공백을 추가시켜준다.
@@ -717,6 +757,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	}
 
 	*/
+#endif
 }
 
 void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
@@ -774,6 +815,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	//std::regex datetime_pattern("([0-9]{4})[-/]([0-9]{2})[-/]([0-9]{2})[ ]*([0-9]{2})[:]([0-9]{2})[:]([0-9]{2})");
 	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
 
+#if 0
 	for (int i = 0; i < m_doc[index].m_content.size(); i++)
 	{
 		line = m_doc[index].m_content[i];
@@ -848,11 +890,12 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	m_doc[index].m_rich->set_text(&m_doc[index].m_content);
 
 	arrange_logs_by_timestamp();
+#endif
 }
 
 void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
 {
-	m_context_menu_hwnd = (CRichEditCtrlEx*)pWnd;
+	m_context_menu_hwnd = (CScintillaCtrl*)pWnd;
 
 	auto it = std::find_if(m_doc.begin(), m_doc.end(),
 		[&](const CLogDiffFile& doc)
@@ -881,7 +924,8 @@ void CLogDiffDlg::OnMenuSave()
 	if (index < 0 || index >= m_doc.size())
 		return;
 
-	m_doc[index].m_rich->save(m_doc[index].m_file);
+	CString str = m_doc[index].m_rich->GetText(m_doc[index].m_rich->GetTextLength());
+	save(m_doc[index].m_file, str);
 }
 
 void CLogDiffDlg::OnMenuSaveAs()
@@ -894,7 +938,9 @@ void CLogDiffDlg::OnMenuSaveAs()
 	if (dlg.DoModal() != IDOK)
 		return;
 
-	if (m_doc[index].m_rich->save(dlg.GetPathName()) == false)
+	CString str = m_doc[index].m_rich->GetText(m_doc[index].m_rich->GetTextLength());
+
+	if (save(dlg.GetPathName(), str) == false)
 	{
 		AfxMessageBox(dlg.GetPathName() + _T("\n\n파일 저장 실패"), MB_ICONSTOP);
 		return;
@@ -933,4 +979,84 @@ void CLogDiffDlg::OnMenuCloseDocAll()
 {
 	release();
 	arrange_layout();
+}
+
+BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
+{
+#pragma warning(suppress: 26490)
+	const NotifyHeader* pNMHdr{ reinterpret_cast<NotifyHeader*>(lParam) };
+#pragma warning(suppress: 26496)
+	AFXASSUME(pNMHdr != nullptr);
+
+	auto pSCNotification{ reinterpret_cast<NotificationData*>(lParam) };
+	SCNotification* scn = (SCNotification*)pNMHdr;
+	CScintillaCtrl* rich = (CScintillaCtrl*)(CWnd::FromHandle((HWND)(scn->nmhdr.hwndFrom)));
+
+	//TRACE(_T("scn->nmhdr.code = %d, scn->ch = %d\n"), scn->nmhdr.code, scn->ch);
+	//Notify()를 통해 esc키 종료 처리를 하려 했으나
+	//모든 키를 무시하도록 설정하면 여기에서 esc를 처리할 수 있으나 에디터의 기본 편집 관련키도 모두 무시되고
+	//esc키만 무시하려 해도 되지 않았다.
+	//결국 CScintillaCtrl::PreTranslateMessage()에서 esc키를 그대로 통과시키고
+	//CTestScintillaDlg::PreTranslateMessage()에서 처리하도록 함.
+	if (scn->nmhdr.code == SCN_CHARADDED)
+	{
+		if (scn->ch == VK_ESCAPE)
+		{
+			OnBnClickedCancel();
+			return TRUE;
+		}
+	}
+	else if (scn->nmhdr.code == SCN_PAINTED)
+	{
+		if (!rich->is_initial_loading_completed())
+		{
+			rich->initial_loading_completed(true);
+			TRACE(_T("loading completed\n"));
+
+			rich->ClearSelections();
+			rich->ScrollToStart();
+		}
+	}
+	else if (scn->nmhdr.code == SCN_UPDATEUI && !m_scroll_syncing)
+	{
+		if (!rich->is_initial_loading_completed())
+			return __super::OnNotify(wParam, lParam, pResult);
+
+		if (m_scroll_syncing)
+			return __super::OnNotify(wParam, lParam, pResult);
+
+		m_scroll_syncing = true;
+		int hpos = rich->GetXOffset();
+		int vpos = rich->GetFirstVisibleLine();
+		TRACE(_T("rich = %p, hpos=%d, vpos=%d\n"), rich, hpos, vpos);
+
+		for (int i = 0; i < m_doc.size(); i++)
+		{
+			if (rich == m_doc[i].m_rich)
+				continue;
+
+			m_doc[i].m_rich->LineScroll(0, vpos);
+			m_doc[i].m_rich->SetXOffset(hpos);
+		}
+		m_scroll_syncing = false;
+	}
+	/*
+	switch (pNMHdr->code)
+	{
+		case Notification::Key:
+		{
+			if (pSCNotification->ch == VK_ESCAPE)
+				OnBnClickedCancel();
+			break;
+		}
+		case Notification::StyleNeeded:
+		{
+	#pragma warning(suppress: 26486)
+			//m_edit->OnStyleNeeded(pSCNotification);
+			break;
+		}
+	}
+	*/
+
+	return __super::OnNotify(wParam, lParam, pResult);
 }

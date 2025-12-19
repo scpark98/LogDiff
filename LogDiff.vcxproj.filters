@@ -16,6 +16,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{a6905102-6c35-41df-b609-4397debcc4a0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Common\Scintilla">
+      <UniqueIdentifier>{13923889-5821-40a2-b35c-5adc35fa0596}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LogDiff.h">
@@ -42,9 +45,6 @@
     <ClInclude Include="..\Common\Functions.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="..\Common\CEdit\SCEdit\SCEdit.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -59,6 +59,12 @@
     </ClInclude>
     <ClInclude Include="..\Common\CProgressCtrl\MacProgressCtrl\MacProgressCtrl.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\CEdit\Scintilla\Scintilla_init.h">
+      <Filter>Common\Scintilla</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\CEdit\Scintilla\ScintillaCtrl.h">
+      <Filter>Common\Scintilla</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -77,9 +83,6 @@
     <ClCompile Include="..\Common\Functions.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="..\Common\CEdit\SCEdit\SCEdit.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -95,6 +98,9 @@
     <ClCompile Include="..\Common\CProgressCtrl\MacProgressCtrl\MacProgressCtrl.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="..\Common\CEdit\Scintilla\ScintillaCtrl.cpp">
+      <Filter>Common\Scintilla</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="LogDiff.rc">
@@ -104,9 +110,6 @@
   <ItemGroup>
     <None Include="res\LogDiff.rc2">
       <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="..\Common\CEdit\RichEditCtrlEx\RTF sample.rtf">
-      <Filter>Common</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
