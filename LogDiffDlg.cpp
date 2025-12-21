@@ -140,7 +140,7 @@ BOOL CLogDiffDlg::OnInitDialog()
 
 	DragAcceptFiles();
 
-#if 0
+#if 1
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log")));
@@ -149,7 +149,7 @@ BOOL CLogDiffDlg::OnInitDialog()
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LMMViewer.log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LMMAgentService.log")));
 	open_files();
-#elif 1
+#elif 0
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LiveWebAgent[20251216].log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LivewebClient16.log")));
 	open_files();
@@ -312,7 +312,6 @@ void CLogDiffDlg::open_files()
 	for (int i = 0; i < m_doc.size(); i++)
 	{
 		open_file(i);
-		//::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, 0), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 	}
 
 	//파일수에 따라 레이아웃을 재조정한다.
@@ -327,9 +326,7 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 	rich->StyleSetSize(STYLE_DEFAULT, 10);
 	rich->StyleSetFont(STYLE_DEFAULT, "Consolas");
 
-	//StyleClearAll()을 호출해줘야 기본 글자색, 바탕색등이 제대로 표시된다.
-	rich->StyleClearAll();
-
+	//custom keyword color를 사용하므로 Lexer는 사용하지 않는다.
 	//rich->SetILexer(m_pCLexer);
 
 	rich->SendMessage(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
@@ -338,21 +335,32 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 	int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
 	rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
 
-	rich->StyleSetFore(STYLE_LINENUMBER, get_color_from_hexa_str(_T("8A8A8A")));
-	rich->StyleSetBack(STYLE_LINENUMBER, get_color_from_hexa_str(_T("0C0C0C")));
+	//선택 영역 색상
+	rich->SetSelFore(TRUE, get_color_from_hexa_str(_T("3F3F3F")));
+	rich->SetSelBack(TRUE, get_color_from_hexa_str(_T("DCDCCC")));
 
-	rich->SetSelBack(TRUE, get_color_from_hexa_str(_T("585858")));
-	rich->SetSelFore(TRUE, get_color_from_hexa_str(_T("000000")));
-
+	//caret color
 	rich->SetCaretFore(get_color_from_hexa_str(_T("DCDCCC")));
 	//rich->SetCaretLineBack(get_color_from_hexa_str(_T("DCDCCC")));
 
+	//라인 앞뒤 간격 픽셀 크기
 	rich->SetExtraAscent(1);
 	rich->SetExtraDescent(1);
 
 	//rich->ClearCmdKey(SCK_ESCAPE);
 	//rich->ClearCmdKey(VK_ESCAPE);
 	//rich->ClearAllCmdKeys();
+
+	//StyleClearAll()을 호출해줘야 기본 글자색, 바탕색등이 제대로 표시된다.
+	//근데 라인번호 영역의 색 설정은 이 함수 뒤에 해줘야 적용된다??
+	rich->StyleClearAll();
+
+	//라인 넘버 글자색, 배경색
+	rich->StyleSetFore(STYLE_LINENUMBER, get_color_from_hexa_str(_T("8A8A8A")));
+	rich->StyleSetBack(STYLE_LINENUMBER, get_color_from_hexa_str(_T("0C0C0C")));
+
+	rich->UsePopUp(Scintilla::PopUp::Never);
+
 
 	init_keyword_style(rich);
 	highlight_keyword(rich, 0);
@@ -366,8 +374,10 @@ void CLogDiffDlg::init_keyword_style(CScintillaCtrl* rich)
 
 	for (int i = 0; i < style_count; i++)
 	{
-		rich->SendMessage(SCI_INDICSETSTYLE, i, INDIC_TEXTFORE);
-		rich->SendMessage(SCI_INDICSETFORE, i, styles[i].cr);
+		//rich->SendMessage(SCI_INDICSETSTYLE, i, INDIC_TEXTFORE);
+		rich->IndicSetStyle(i, Scintilla::IndicatorStyle::TextFore);
+		//rich->SendMessage(SCI_INDICSETFORE, i, styles[i].cr);
+		rich->IndicSetFore(i, styles[i].cr);
 	}
 }
 
@@ -384,9 +394,14 @@ void CLogDiffDlg::highlight_keyword(CScintillaCtrl* rich, int indicator)
 	all_text.MakeLower();
 	keyword.MakeLower();
 	int pos = 0;
+	int line;
+	CString str;
 
 	while ((pos = all_text.Find(keyword, pos)) != -1)
 	{
+		line = rich->LineFromPosition(pos);// SendMessage(SCI_LINEFROMPOSITION, pos, 0);
+		str = rich->GetLine(line);
+		TRACE(_T("keyword = %s, pos = %d, line = %d, str = %s\n"), keyword, pos, line, str);
 		rich->SendMessage(SCI_INDICATORFILLRANGE, pos, keyword.GetLength());
 		pos += keyword.GetLength();
 	}
@@ -404,6 +419,7 @@ void CLogDiffDlg::open_file(int index)
 
 	set_default_styles(rich);
 
+
 	//문서 타이틀 표시
 	//edit에는 fullpath가 표시되는데 width가 작아졌을 때 word-wrap되므로 ES_AUTOHSCROLL을 줘야 한다.
 	CSCEdit* edit = new CSCEdit();
@@ -419,8 +435,9 @@ void CLogDiffDlg::open_file(int index)
 	edit->set_line_align(DT_VCENTER);
 	m_doc[index].m_title = edit;
 
+
 	CMacProgressCtrl* progress = new CMacProgressCtrl();
-	progress->Create(WS_CHILD | WS_VISIBLE, CRect(0, 0, 1, 1), this, 2);
+	progress->Create(WS_CHILD, CRect(0, 0, 1, 1), this, 2);
 	m_doc[index].m_progress = progress;
 }
 
@@ -815,10 +832,11 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	//std::regex datetime_pattern("([0-9]{4})[-/]([0-9]{2})[-/]([0-9]{2})[ ]*([0-9]{2})[:]([0-9]{2})[:]([0-9]{2})");
 	std::regex datetime_pattern("(\\d{4})[-/](\\d{2})[-/](\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}).(\\d{3})");
 
-#if 0
-	for (int i = 0; i < m_doc[index].m_content.size(); i++)
+	int total_lines = m_doc[index].m_rich->GetLineCount();
+
+	for (int i = 0; i < total_lines; i++)
 	{
-		line = m_doc[index].m_content[i];
+		line = m_doc[index].m_rich->GetLine(i);
 
 		if (line.IsEmpty() || (line.GetLength() == 1 && line.Right(1) == '\n'))
 		{
@@ -852,10 +870,6 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 					time_current_log = time_current_log + dlg.m_t;
 				else
 					time_current_log = time_current_log - dlg.m_t;
-
-				//다시 라인에 반영
-				CString new_datetime_str = time_current_log.to_string();
-				m_doc[index].m_content[i] = prefix + new_datetime_str + suffix;
 			}
 			else if(dlg.m_method == method_specific_datetime)
 			{
@@ -875,10 +889,15 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 					Trace(_T("new_stamp = %s\n"), time_current_log.to_string());
 				}
 
-				//다시 라인에 반영
-				CString new_datetime_str = time_current_log.to_string();
-				m_doc[index].m_content[i] = prefix + new_datetime_str + suffix;
 			}
+
+			//다시 라인에 반영
+			CString new_datetime_str = time_current_log.to_string();
+			int start = m_doc[index].m_rich->PositionFromLine(i);
+			int end = m_doc[index].m_rich->PositionFromLine(i + 1);
+			m_doc[index].m_rich->SetTargetStart(start);
+			m_doc[index].m_rich->SetTargetEnd(end);
+			m_doc[index].m_rich->ReplaceTarget(-1, prefix + new_datetime_str + suffix);
 		}
 		else
 		{
@@ -886,11 +905,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 		}
 	}
 
-	//변경된 내용을 다시 rich에 적용시킨다.
-	m_doc[index].m_rich->set_text(&m_doc[index].m_content);
-
 	arrange_logs_by_timestamp();
-#endif
 }
 
 void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
@@ -1011,7 +1026,7 @@ BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 		if (!rich->is_initial_loading_completed())
 		{
 			rich->initial_loading_completed(true);
-			TRACE(_T("loading completed\n"));
+			TRACE(_T("document_loading completed\n"));
 
 			rich->ClearSelections();
 			rich->ScrollToStart();
@@ -1028,14 +1043,14 @@ BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 		m_scroll_syncing = true;
 		int hpos = rich->GetXOffset();
 		int vpos = rich->GetFirstVisibleLine();
-		TRACE(_T("rich = %p, hpos=%d, vpos=%d\n"), rich, hpos, vpos);
+		//TRACE(_T("rich = %p, hpos=%d, vpos=%d\n"), rich, hpos, vpos);
 
 		for (int i = 0; i < m_doc.size(); i++)
 		{
 			if (rich == m_doc[i].m_rich)
 				continue;
 
-			m_doc[i].m_rich->LineScroll(0, vpos);
+			//m_doc[i].m_rich->LineScroll(0, vpos);
 			m_doc[i].m_rich->SetXOffset(hpos);
 		}
 		m_scroll_syncing = false;
