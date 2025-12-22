@@ -21,9 +21,12 @@
 #endif
 
 KeywordStyle styles[] = {
-	{"error", INDIC_ERROR, RGB(220, 50, 47)},
-	{"fail", INDIC_FAIL, RGB(220, 50, 47)},
-	{"warn",  INDIC_WARN,  RGB(255, 140, 0)},
+	{"error", INDIC_ERROR0, RGB(220, 50, 47)},
+	{"에러", INDIC_ERROR1, RGB(220, 50, 47)},
+	{"fail", INDIC_FAIL0, RGB(220, 50, 47)},
+	{"실패", INDIC_FAIL1, RGB(220, 50, 47)},
+	{"warn",  INDIC_WARN0,  RGB(255, 140, 0)},
+	{"경고",  INDIC_WARN1,  RGB(255, 140, 0)},
 };
 
 
@@ -250,6 +253,12 @@ void CLogDiffDlg::release(int index)
 				delete m_doc[i].m_title;
 			}
 
+			if (m_doc[i].m_statusbar)
+			{
+				m_doc[i].m_statusbar->DestroyWindow();
+				delete m_doc[i].m_statusbar;
+			}
+
 			if (m_doc[i].m_progress)
 			{
 				m_doc[i].m_progress->DestroyWindow();
@@ -302,6 +311,7 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 		m_doc.push_back(CLogDiffFile(sfile));
 	}
 
+	arranged_by_timestamp = false;
 	open_files();
 
 	CDialogEx::OnDropFiles(hDropInfo);
@@ -311,7 +321,8 @@ void CLogDiffDlg::open_files()
 {
 	for (int i = 0; i < m_doc.size(); i++)
 	{
-		open_file(i);
+		if (m_doc[i].m_rich == NULL)
+			open_file(i);
 	}
 
 	//파일수에 따라 레이아웃을 재조정한다.
@@ -330,10 +341,8 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 	//rich->SetILexer(m_pCLexer);
 
 	rich->SendMessage(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
-	int count = rich->GetLineCount();
-	CString sdigit = i2S(count);
 	int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
-	rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
+	rich->SetMarginWidthN(0, charWidth + 8);
 
 	//선택 영역 색상
 	rich->SetSelFore(TRUE, get_color_from_hexa_str(_T("3F3F3F")));
@@ -358,27 +367,37 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 	//라인 넘버 글자색, 배경색
 	rich->StyleSetFore(STYLE_LINENUMBER, get_color_from_hexa_str(_T("8A8A8A")));
 	rich->StyleSetBack(STYLE_LINENUMBER, get_color_from_hexa_str(_T("0C0C0C")));
+	//라인 넘버외에 폴드, 마커 영역 모두 제거한다.
+	for (int i = 1; i < 5; i++)
+	{
+		rich->SetMarginWidthN(i, 0);
+		rich->SetMarginSensitiveN(i, false);
+	}
+
+	//rich->SetProperty("fold", "0");
+	rich->MarkerDeleteAll(-1);
 
 	rich->UsePopUp(Scintilla::PopUp::Never);
 
 
 	init_keyword_style(rich);
-	highlight_keyword(rich, 0);
-	highlight_keyword(rich, 1);
-	highlight_keyword(rich, 2);
 }
 
 void CLogDiffDlg::init_keyword_style(CScintillaCtrl* rich)
 {
+	int i;
 	int style_count = sizeof(styles) / sizeof(styles[0]);
 
-	for (int i = 0; i < style_count; i++)
+	for (i = 0; i < style_count; i++)
 	{
 		//rich->SendMessage(SCI_INDICSETSTYLE, i, INDIC_TEXTFORE);
 		rich->IndicSetStyle(i, Scintilla::IndicatorStyle::TextFore);
 		//rich->SendMessage(SCI_INDICSETFORE, i, styles[i].cr);
 		rich->IndicSetFore(i, styles[i].cr);
 	}
+
+	for (i = 0; i < style_count; i++)
+		highlight_keyword(rich, i);
 }
 
 void CLogDiffDlg::highlight_keyword(CScintillaCtrl* rich, int indicator)
@@ -407,14 +426,17 @@ void CLogDiffDlg::highlight_keyword(CScintillaCtrl* rich, int indicator)
 	}
 }
 
+
+
 //m_files에 채워진 파일들을 로딩한다.
 void CLogDiffDlg::open_file(int index)
 {
 	CScintillaCtrl* rich = new CScintillaCtrl();
-	rich->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER, CRect(0, 0, 1, 1), this, index);
+	rich->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP /*| WS_BORDER*/, CRect(0, 0, 1, 1), this, index);
 
-	CString str = read(m_doc[index].m_file);
-	rich->SetText(str);
+	//CString str = read(m_doc[index].m_file);
+	//rich->SetText(str);
+	rich->read_file(m_doc[index].m_file);
 	m_doc[index].m_rich = rich;
 
 	set_default_styles(rich);
@@ -435,9 +457,14 @@ void CLogDiffDlg::open_file(int index)
 	edit->set_line_align(DT_VCENTER);
 	m_doc[index].m_title = edit;
 
+	CSCStatic* statusbar = new CSCStatic();
+	statusbar->create(m_doc[index].m_file, WS_CHILD | WS_VISIBLE, CRect(0, 0, 1, 1), this, 2);
+	statusbar->SetFont(GetFont());
+	statusbar->set_font_size(8);
+	m_doc[index].m_statusbar = statusbar;
 
 	CMacProgressCtrl* progress = new CMacProgressCtrl();
-	progress->Create(WS_CHILD, CRect(0, 0, 1, 1), this, 2);
+	progress->Create(WS_CHILD, CRect(0, 0, 1, 1), this, 3);
 	m_doc[index].m_progress = progress;
 }
 
@@ -451,6 +478,7 @@ void CLogDiffDlg::arrange_layout()
 
 	int gap = 8;
 	int edit_height = 32;
+	int statusbar_height = 16;
 	int progress_height = 6;
 	CSize m_sz_scrollbar(24, rc.Height());
 	CRect margin(8, 8, 8, 8);
@@ -458,7 +486,8 @@ void CLogDiffDlg::arrange_layout()
 	int w = (rc.Width() - (m_doc.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_doc.size();
 
 	CRect rtitle = CRect(margin.left, margin.top, margin.left + w, margin.top + edit_height);
-	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom - progress_height);
+	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom - statusbar_height);
+	CRect rstatusbar = CRect(margin.left, rrich.bottom + 0, margin.left + w, rrich.bottom + statusbar_height);
 	CRect rprogress = CRect(margin.left, rrich.bottom + 2, margin.left + w, rrich.bottom + 2 + progress_height);
 
 	for (int i = 0; i < m_doc.size(); i++)
@@ -469,12 +498,12 @@ void CLogDiffDlg::arrange_layout()
 		m_doc[i].m_title->MoveWindow(rtitle);
 		rtitle.OffsetRect(w + gap, 0);
 
+		m_doc[i].m_statusbar->MoveWindow(rstatusbar);
+		rstatusbar.OffsetRect(w + gap, 0);
+
 		m_doc[i].m_progress->MoveWindow(rprogress);
 		rprogress.OffsetRect(w + gap, 0);
 	}
-
-	//for (int i = 0; i < m_doc.size(); i++)
-	//	m_doc[i].m_progress->ShowWindow(SW_HIDE);
 }
 
 void CLogDiffDlg::OnSize(UINT nType, int cx, int cy)
@@ -494,7 +523,7 @@ BOOL CLogDiffDlg::PreTranslateMessage(MSG* pMsg)
 		pMsg->message == WM_MOUSEWHEEL)
 	{
 		//TRACE(_T("PreTranslateMessage: pMsg->message = %d\n"), pMsg->message);
-		sync_scroll(pMsg);
+		//sync_scroll(pMsg);
 	}
 	else if (pMsg->message == WM_KEYDOWN)
 	{
@@ -555,24 +584,22 @@ void CLogDiffDlg::sync_scroll(MSG* pMsg)
 	int vpos = rich->GetFirstVisibleLine();
 	TRACE(_T("old hpos=%d, vpos=%d\n"), hpos, vpos);
 
-	/*
 	for (int i = 0; i < m_doc.size(); i++)
 	{
 		if (rich == m_doc[i].m_rich)
 			continue;
 
-		if (pMsg->message == WM_MOUSEHWHEEL || pMsg->message == WM_HSCROLL)
-			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_HSCROLL, MAKEWPARAM(SB_THUMBPOSITION, hpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
-		else if (pMsg->message == WM_MOUSEWHEEL || pMsg->message == WM_VSCROLL)
-			::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
+		//if (pMsg->message == WM_MOUSEHWHEEL || pMsg->message == WM_HSCROLL)
+			m_doc[i].m_rich->LineScroll(hpos, vpos);
+		//else if (pMsg->message == WM_MOUSEWHEEL || pMsg->message == WM_VSCROLL)
+		//	::SendMessage(m_doc[i].m_rich->m_hWnd, WM_VSCROLL, MAKEWPARAM(SB_THUMBPOSITION, vpos), (LPARAM)(m_doc[i].m_rich->m_hWnd));
 	}
-	*/
 }
 
 class CForSortLog
 {
 public:
-	CForSortLog(int _index, CSCTime _time_stamp, CString _full_log)
+	CForSortLog(int _index = 0, CSCTime _time_stamp = CSCTime(), CString _full_log = _T(""))
 	{
 		index = _index;
 		time_stamp = _time_stamp;
@@ -586,34 +613,54 @@ public:
 
 void CLogDiffDlg::arrange_logs_by_timestamp()
 {
-#if 0
-	//문서 index와 시간문자열을 pair로 하여 리스트에 모두 넣고 시간값으로 정렬시킨다.
+	//문서 index, time_stamp, full_log를 하나의 객체로 만들어서 리스트에 모두 넣고 시간값으로 정렬시킨다.
 	//0 ~ n까지 순차적으로 나타나는지 체크한다.
-	//만약 index가 0 1 2로 증가해야 하는데 0 1 1이었다면 2번에 공백을 추가시켜준다.
-	//이렇게 끝까지 순차 검사를 완료했다면 i번은 m_content[i]에 다시 넣어준다.
-	std::deque<CForSortLog> list;
+	//만약 index가 0 1 2로 나타나야 하는데 0 1 1로 나타났다면 2번 문서에 공백을 추가시켜준다.
+	//이렇게 끝까지 순차 검사를 완료했다면 i번은 m_rich[i]에 다시 넣어준다.
+	//단, 몇 만 라인의 로그일 경우는 Debug 모드에서는 매우 느리며 Release 모드에서는 기다릴 만 하다.
+	std::vector<CForSortLog> list;
 
 	int i, j;
+	int total_elements = 0;
+
+	for (i = 0; i < m_doc.size(); i++)
+	{
+		total_elements += m_doc[i].m_rich->GetLineCount();
+	}
+	list.resize(total_elements);
+
+	int total_index = 0;
 
 	for (i = 0; i < m_doc.size(); i++)
 	{
 		CSCTime prev_timestamp;
 
-		for (j = 0; j < m_doc[i].m_content.size(); j++)
+		int total_lines = m_doc[i].m_rich->GetLineCount();
+		m_doc[i].m_progress->SetRange(0, total_lines);
+		m_doc[i].m_statusbar->ShowWindow(SW_HIDE);
+		m_doc[i].m_progress->ShowWindow(SW_SHOW);
+
+		for (j = 0; j < total_lines; j++)
 		{
+			m_doc[i].m_progress->SetPos(j);
+
 			//만약 공백이나 timestamp가 없는 라인이라면 timestamp는 이전값보다 ms를 1만큼 큰 값으로 변경해준다.
 			//그래야만 정렬시에 그 위치가 유지된다.
-			CString log = m_doc[i].m_content[j];
-			CSCTime time_stamp(m_doc[i].m_content[j]);
+			CString log = m_doc[i].m_rich->GetLine(j);
+			CSCTime time_stamp(log);
 
 			if (j > 0 && time_stamp.is_empty())
 			{
 				time_stamp = prev_timestamp + CSCTime(0, 0, 0, 0, 0, 0, 1);
 			}
-			list.push_back(CForSortLog(i, time_stamp, m_doc[i].m_content[j]));
+
+			list[total_index++] = CForSortLog(i, time_stamp, log);
 			prev_timestamp = time_stamp;
 		}
+
+		m_doc[i].m_progress->SetPos(0);
 	}
+
 
 	std::sort(list.begin(), list.end(),
 		[](CForSortLog a, CForSortLog b)
@@ -642,24 +689,17 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	{
 		if (list[i].index != sequence)
 		{
-			//현재 timestamp가 다음 timestamp보다 작을때만 추가한다. 동일하다면 굳이 새 라인을 추가할 필요가 없다.
-			if (false)//(i > 0) && (list[i].time_stamp == list[i - 1].time_stamp))
-			{
-				i--;
-			}
-			else if ((i > 0) && true)//(list[i].time_stamp > list[i - 1].time_stamp))
+			if (i > 0)
 			{
 				//i 자리에 한 라인을 추가하되 그 시간값은 바로 전 항목의 시간값과 동일하게 한다.
 				list.insert(list.begin() + i, CForSortLog(sequence, list[i - 1].time_stamp, _T("\n")));
-			}
-			else
-			{
-				//i--;
 			}
 		}
 
 		i++;
 		sequence++;
+
+		//m_progress.SetPos(i);
 
 		if (sequence == m_doc.size())
 			sequence = 0;
@@ -680,16 +720,24 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	fclose(fp);
 	*/
 
-	//위에서 보정된 list를 각 content에 순차적으로 넣어준다.
+	//위에서 보정된 list를 하나의 문자열로 합치고 다시 rich에 넣어준다.
 	//우선 기존 content를 모두 clear하고
 	for (i = 0; i < m_doc.size(); i++)
-		m_doc[i].m_content.clear();
+	{
+		m_doc[i].m_rich->ClearAll();
 
-	for (i = 0; i < list.size(); i++)
-		m_doc[list[i].index].m_content.push_back(list[i].full_log);
+		CString new_text;
 
-	for (i = 0; i < m_doc.size(); i++)
-		m_doc[i].m_rich->set_text(&m_doc[i].m_content);
+		for (j = 0; j < list.size(); j++)
+		{
+			if (list[j].index == i)
+				new_text += list[j].full_log;
+		}
+
+		m_doc[i].m_rich->SetText(new_text);
+		m_doc[i].m_progress->ShowWindow(SW_HIDE);
+		m_doc[i].m_statusbar->ShowWindow(SW_SHOW);
+	}
 
 	/*
 	//각 라인 인덱스를 증가시키면서 timestamp를 추출하고 비교하여 timestamp 순으로 출력시킨다.
@@ -774,7 +822,8 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 	}
 
 	*/
-#endif
+
+	arranged_by_timestamp = true;
 }
 
 void CLogDiffDlg::OnTimer(UINT_PTR nIDEvent)
@@ -904,8 +953,6 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 			Trace(_T("%d. No match found in line: %s\n"), i, line);
 		}
 	}
-
-	arrange_logs_by_timestamp();
 }
 
 void CLogDiffDlg::OnContextMenu(CWnd* pWnd, CPoint point)
@@ -939,8 +986,10 @@ void CLogDiffDlg::OnMenuSave()
 	if (index < 0 || index >= m_doc.size())
 		return;
 
-	CString str = m_doc[index].m_rich->GetText(m_doc[index].m_rich->GetTextLength());
-	save(m_doc[index].m_file, str);
+	m_doc[index].m_rich->save_file(m_doc[index].m_file);
+
+	//CString str = m_doc[index].m_rich->GetText(m_doc[index].m_rich->GetTextLength());
+	//save(m_doc[index].m_file, str);
 }
 
 void CLogDiffDlg::OnMenuSaveAs()
@@ -953,6 +1002,11 @@ void CLogDiffDlg::OnMenuSaveAs()
 	if (dlg.DoModal() != IDOK)
 		return;
 
+	m_doc[index].m_file = dlg.GetPathName();
+	m_doc[index].m_rich->save_file(m_doc[index].m_file);
+	m_doc[index].m_title->set_text(dlg.GetPathName());
+
+	/*
 	CString str = m_doc[index].m_rich->GetText(m_doc[index].m_rich->GetTextLength());
 
 	if (save(dlg.GetPathName(), str) == false)
@@ -964,6 +1018,7 @@ void CLogDiffDlg::OnMenuSaveAs()
 	//파일명 정보를 갱신한다.
 	m_doc[index].m_file = dlg.GetPathName();
 	m_doc[index].m_title->set_text(dlg.GetPathName());
+	*/
 }
 
 void CLogDiffDlg::OnMenuCurrentFolder()
@@ -977,7 +1032,8 @@ void CLogDiffDlg::OnMenuCurrentFolder()
 
 void CLogDiffDlg::OnMenuSort()
 {
-	arrange_logs_by_timestamp();
+	std::thread th(&CLogDiffDlg::arrange_logs_by_timestamp, this);
+	th.detach();
 }
 
 void CLogDiffDlg::OnMenuCloseDoc()
@@ -1032,28 +1088,78 @@ BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 			rich->ScrollToStart();
 		}
 	}
-	else if (scn->nmhdr.code == SCN_UPDATEUI && !m_scroll_syncing)
+	else if (scn->nmhdr.code == SCN_UPDATEUI)
 	{
-		if (!rich->is_initial_loading_completed())
-			return __super::OnNotify(wParam, lParam, pResult);
-
 		if (m_scroll_syncing)
 			return __super::OnNotify(wParam, lParam, pResult);
 
-		m_scroll_syncing = true;
-		int hpos = rich->GetXOffset();
-		int vpos = rich->GetFirstVisibleLine();
-		//TRACE(_T("rich = %p, hpos=%d, vpos=%d\n"), rich, hpos, vpos);
+		auto* notify = (SCNotification*)pNMHdr;
 
-		for (int i = 0; i < m_doc.size(); i++)
+		//if (!(notify->updated & (SC_UPDATE_V_SCROLL | SC_UPDATE_H_SCROLL)))
+		//	return __super::OnNotify(wParam, lParam, pResult);
+
+		trace(notify->updated);
+
+		if ((notify->updated != SC_UPDATE_V_SCROLL) && (notify->updated != SC_UPDATE_H_SCROLL) && (notify->updated != 6))
+			return __super::OnNotify(wParam, lParam, pResult);
+
+
+		//scroll sync와는 무관하게 여기서 처리해야 할 기능은
+		//라인넘버에 따라 라인넘버 영역의 width가 자동 조정되어야 한다.
+		int first = rich->GetFirstVisibleLine();
+		int last = rich->LinesOnScreen();
+		CString sdigit = i2S(first + last);
+		int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
+		rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
+
+
+		if (m_scroll_syncing || !arranged_by_timestamp)
+			return __super::OnNotify(wParam, lParam, pResult);
+
+		CScintillaCtrl* src = nullptr;
+
+		for (auto doc : m_doc)
 		{
-			if (rich == m_doc[i].m_rich)
-				continue;
-
-			//m_doc[i].m_rich->LineScroll(0, vpos);
-			m_doc[i].m_rich->SetXOffset(hpos);
+			if (doc.m_rich->GetSafeHwnd() == notify->nmhdr.hwndFrom)
+			{
+				src = doc.m_rich;
+				break;
+			}
 		}
+
+		if (!src)
+			return __super::OnNotify(wParam, lParam, pResult);
+
+		m_scroll_syncing = true;
+
+		// === Vertical ===
+		int srcLine = src->GetFirstVisibleLine();
+
+		for (auto doc : m_doc)
+		{
+			int dstLine = doc.m_rich->GetFirstVisibleLine();
+			int delta = srcLine - dstLine;
+
+			CString sdigit = i2S(dstLine);
+			int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
+			rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
+
+			if (doc.m_rich == src) continue;
+
+			if (delta != 0)
+				doc.m_rich->LineScroll(0, delta);
+		}
+
+		// === Horizontal (optional) ===
+		int x = src->GetXOffset();
+		for (auto doc : m_doc)
+		{
+			if (doc.m_rich == src) continue;
+			doc.m_rich->SetXOffset(x);
+		}
+
 		m_scroll_syncing = false;
+		*pResult = 0;
 	}
 	/*
 	switch (pNMHdr->code)

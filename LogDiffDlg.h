@@ -5,6 +5,7 @@
 #pragma once
 
 #include <deque>
+#include "Common/CStatic/SCStatic/SCStatic.h"
 #include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/CEdit/Scintilla/ScintillaCtrl.h"
 #include "Common/data_types/CSCTime/SCTime.h"
@@ -13,9 +14,12 @@
 using namespace Scintilla;
 
 enum {
-	INDIC_ERROR = 0,
-	INDIC_FAIL,
-	INDIC_WARN = 1,
+	INDIC_ERROR0 = 0,
+	INDIC_ERROR1,
+	INDIC_FAIL0,
+	INDIC_FAIL1,
+	INDIC_WARN0,
+	INDIC_WARN1,
 };
 
 struct KeywordStyle {
@@ -35,8 +39,8 @@ public:
 	CString				m_file;
 	CSCEdit*			m_title = NULL;
 	CScintillaCtrl*		m_rich = NULL;
+	CSCStatic*			m_statusbar = NULL;
 	CMacProgressCtrl*	m_progress = NULL;
-	//std::deque<CString>	m_content;
 };
 
 // CLogDiffDlg 대화 상자
@@ -54,6 +58,7 @@ public:
 	enum TIMER_ID
 	{
 		timer_id_initial_focus = 0,
+		timer_sync_scroll,
 	};
 
 	//m_file에 명시된 파일들을 순차적으로 open한다.
@@ -64,14 +69,17 @@ public:
 	void							init_keyword_style(CScintillaCtrl* rich);
 	void							highlight_keyword(CScintillaCtrl* rich, int indicator);
 
+
 	void							arrange_layout();
 	void							release(int index = -1);
 
 	CSCTime							get_time_stamp(CString log_line);
 
+	bool							arranged_by_timestamp = false;
 	void							arrange_logs_by_timestamp();
 
-	//윈도우 기본 scroll event로는 제대로 catch되지 않으므로 미리 기억하고 동기화해야 함.
+	//윈도우 기본 scroll event로는 제대로 catch되지 않으므로 OnNotify()에서 동기화한다.
+	//단, arrange_logs_by_timestamp()가 호출되기 전 상태라면 동기화시키지 않는다.
 	bool							m_scroll_syncing = false;
 
 	void							sync_scroll(MSG* pMsg);
@@ -117,5 +125,4 @@ public:
 	afx_msg void OnMenuCloseDoc();
 	afx_msg void OnMenuCloseDocAll();
 	BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
-	CMacProgressCtrl m_progress;
 };
