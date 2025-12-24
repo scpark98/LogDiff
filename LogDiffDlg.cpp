@@ -143,7 +143,19 @@ BOOL CLogDiffDlg::OnInitDialog()
 
 	DragAcceptFiles();
 
-#if 1
+	//레지스트리에서 최근 열었던 파일목록을 m_files에 채워준다.
+	std::deque<CString> recent_list;
+	get_registry_str_list(&theApp, _T("setting\\recent files"), recent_list);
+	m_doc.resize(recent_list.size());
+
+	for (int i = 0; i < recent_list.size(); i++)
+	{
+		m_doc[i].m_file = recent_list[i];
+	}
+
+	open_files();
+
+#if 0
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250924.log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20250925.log")));
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\ManualLauncher_20251105.log")));
@@ -157,6 +169,10 @@ BOOL CLogDiffDlg::OnInitDialog()
 	m_doc.push_back(CLogDiffFile(get_exe_directory() + _T("\\test_log_data\\LivewebClient16.log")));
 	open_files();
 #endif
+
+	CString str;
+	str.Format(_T("LogDiff (ver %s)"), get_file_property());
+	SetWindowText(str);
 
 	SetTimer(timer_id_initial_focus, 10, NULL);
 
@@ -319,7 +335,9 @@ void CLogDiffDlg::OnDropFiles(HDROP hDropInfo)
 
 void CLogDiffDlg::open_files()
 {
-	for (int i = 0; i < m_doc.size(); i++)
+	int i;
+
+	for (i = 0; i < m_doc.size(); i++)
 	{
 		if (m_doc[i].m_rich == NULL)
 			open_file(i);
@@ -327,6 +345,15 @@ void CLogDiffDlg::open_files()
 
 	//파일수에 따라 레이아웃을 재조정한다.
 	arrange_layout();
+
+	//현재 문서들의 경로를 레지스트리에 기억한다.
+	//반드시 "count"를 리셋시켜 준 후 add_registry_str()를 호출해야 한다.
+	theApp.WriteProfileInt(_T("setting\\recent files"), _T("count"), 0);
+
+	for (i = 0; i < m_doc.size(); i++)
+	{
+		add_registry_str(&theApp, _T("setting\\recent files"), m_doc[i].m_file);
+	}
 }
 
 void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
@@ -339,10 +366,6 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 
 	//custom keyword color를 사용하므로 Lexer는 사용하지 않는다.
 	//rich->SetILexer(m_pCLexer);
-
-	rich->SendMessage(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
-	int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
-	rich->SetMarginWidthN(0, charWidth + 8);
 
 	//선택 영역 색상
 	rich->SetSelFore(TRUE, get_color_from_hexa_str(_T("3F3F3F")));
@@ -373,6 +396,10 @@ void CLogDiffDlg::set_default_styles(CScintillaCtrl* rich)
 		rich->SetMarginWidthN(i, 0);
 		rich->SetMarginSensitiveN(i, false);
 	}
+
+	rich->SendMessage(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
+	int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
+	rich->SetMarginWidthN(0, charWidth + 8);
 
 	//rich->SetProperty("fold", "0");
 	rich->MarkerDeleteAll(-1);
@@ -460,12 +487,15 @@ void CLogDiffDlg::open_file(int index)
 	CSCStatic* statusbar = new CSCStatic();
 	statusbar->create(m_doc[index].m_file, WS_CHILD | WS_VISIBLE, CRect(0, 0, 1, 1), this, 2);
 	statusbar->SetFont(GetFont());
+	statusbar->set_font_name(_T("Arial"));
 	statusbar->set_font_size(8);
 	m_doc[index].m_statusbar = statusbar;
 
 	CMacProgressCtrl* progress = new CMacProgressCtrl();
 	progress->Create(WS_CHILD, CRect(0, 0, 1, 1), this, 3);
 	m_doc[index].m_progress = progress;
+
+	update_status_info(rich);
 }
 
 void CLogDiffDlg::arrange_layout()
@@ -480,10 +510,10 @@ void CLogDiffDlg::arrange_layout()
 	int edit_height = 32;
 	int statusbar_height = 16;
 	int progress_height = 6;
-	CSize m_sz_scrollbar(24, rc.Height());
+	CSize sz_scrollbar(0, rc.Height());
 	CRect margin(8, 8, 8, 8);
 
-	int w = (rc.Width() - (m_doc.size() - 1) * gap - margin.left - margin.right - m_sz_scrollbar.cx) / m_doc.size();
+	int w = (rc.Width() - (m_doc.size() - 1) * gap - margin.left - margin.right - sz_scrollbar.cx) / m_doc.size();
 
 	CRect rtitle = CRect(margin.left, margin.top, margin.left + w, margin.top + edit_height);
 	CRect rrich = CRect(margin.left, rtitle.bottom + gap, margin.left + w, rc.bottom - margin.bottom - statusbar_height);
@@ -1052,6 +1082,34 @@ void CLogDiffDlg::OnMenuCloseDocAll()
 	arrange_layout();
 }
 
+//
+void CLogDiffDlg::update_status_info(CScintillaCtrl* rich)
+{
+	int pos = rich->GetCurrentPos();
+	int line = rich->LineFromPosition(pos);
+	int line_start = rich->PositionFromLine(line);
+	int column = pos - line_start;//rich->GetColumn(pos) + 1;
+	int total_lines = rich->GetLineCount();
+
+	line++;
+	line_start++;
+	column++;
+	pos++;
+
+	for (int i = 0; i < m_doc.size(); i++)
+	{
+		if (rich == m_doc[i].m_rich && m_doc[i].m_statusbar)
+		{
+			CString str;
+			str.Format(_T("line: %d / %d      col: %d      pos: %s      %s"), line, total_lines, column, i2S(pos, true), m_doc[i].m_rich->get_encoding_str());
+			m_doc[i].m_statusbar->set_text(str);
+			break;
+		}
+	}
+
+	//TRACE(_T("line = %d (line_start = %d), column = %d, pos = %d\n"), line, line_start, column, pos);
+}
+
 BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 {
 #pragma warning(suppress: 26490)
@@ -1090,27 +1148,27 @@ BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	}
 	else if (scn->nmhdr.code == SCN_UPDATEUI)
 	{
-		if (m_scroll_syncing)
-			return __super::OnNotify(wParam, lParam, pResult);
-
 		auto* notify = (SCNotification*)pNMHdr;
-
-		//if (!(notify->updated & (SC_UPDATE_V_SCROLL | SC_UPDATE_H_SCROLL)))
-		//	return __super::OnNotify(wParam, lParam, pResult);
-
 		trace(notify->updated);
 
-		if ((notify->updated != SC_UPDATE_V_SCROLL) && (notify->updated != SC_UPDATE_H_SCROLL) && (notify->updated != 6))
-			return __super::OnNotify(wParam, lParam, pResult);
-
+		if ((notify->updated > SC_UPDATE_NONE) && (notify->updated % 2 == 0))
+			update_status_info(rich);
 
 		//scroll sync와는 무관하게 여기서 처리해야 할 기능은
-		//라인넘버에 따라 라인넘버 영역의 width가 자동 조정되어야 한다.
+		//라인넘버 최대 자릿수에 따라 라인넘버 영역의 width가 자동 조정되어야 한다.
 		int first = rich->GetFirstVisibleLine();
 		int last = rich->LinesOnScreen();
 		CString sdigit = i2S(first + last);
 		int charWidth = rich->TextWidth(STYLE_LINENUMBER, "9");
 		rich->SetMarginWidthN(0, sdigit.GetLength() * charWidth + 8);
+
+
+		if (m_scroll_syncing)
+			return __super::OnNotify(wParam, lParam, pResult);
+
+
+		if ((notify->updated != SC_UPDATE_V_SCROLL) && (notify->updated != SC_UPDATE_H_SCROLL) && (notify->updated != 6))
+			return __super::OnNotify(wParam, lParam, pResult);
 
 
 		if (m_scroll_syncing || !arranged_by_timestamp)

@@ -31,7 +31,7 @@ struct KeywordStyle {
 class CLogDiffFile
 {
 public:
-	CLogDiffFile(CString file, CSCEdit* title = NULL, CScintillaCtrl* rich = NULL)
+	CLogDiffFile(CString file = _T(""), CSCEdit* title = NULL, CScintillaCtrl* rich = NULL)
 		: m_file(file), m_title(title), m_rich(rich)
 	{
 	}
@@ -84,6 +84,8 @@ public:
 
 	void							sync_scroll(MSG* pMsg);
 	LRESULT							on_message_CRichEditCtrlEx(WPARAM wParam, LPARAM lParam);
+
+	void							update_status_info(CScintillaCtrl* rich);
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
