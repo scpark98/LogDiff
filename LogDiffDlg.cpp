@@ -534,6 +534,10 @@ void CLogDiffDlg::arrange_layout()
 		m_doc[i].m_progress->MoveWindow(rprogress);
 		rprogress.OffsetRect(w + gap, 0);
 	}
+
+	theApp.WriteProfileInt(_T("setting\\recent files"), _T("count"), m_doc.size());
+	for (int i = 0; i < m_doc.size(); i++)
+		theApp.WriteProfileString(_T("setting\\recent files"), i2S(i), m_doc[i].m_file);
 }
 
 void CLogDiffDlg::OnSize(UINT nType, int cx, int cy)
@@ -722,7 +726,7 @@ void CLogDiffDlg::arrange_logs_by_timestamp()
 			if (i > 0)
 			{
 				//i 자리에 한 라인을 추가하되 그 시간값은 바로 전 항목의 시간값과 동일하게 한다.
-				list.insert(list.begin() + i, CForSortLog(sequence, list[i - 1].time_stamp, _T("\n")));
+				list.insert(list.begin() + i, CForSortLog(sequence, list[i - 1].time_stamp, _T("\r\n")));
 			}
 		}
 
