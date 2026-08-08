@@ -902,7 +902,7 @@ void CLogDiffDlg::OnMenuDatetimeShift()
 	}
 
 	int index = m_context_menu_doc_index;
-	trace(index);
+	sctrace(index);
 	
 	CString line;
 	CSCTime time_stamp;
@@ -1153,7 +1153,7 @@ BOOL CLogDiffDlg::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	else if (scn->nmhdr.code == SCN_UPDATEUI)
 	{
 		auto* notify = (SCNotification*)pNMHdr;
-		trace(notify->updated);
+		sctrace(notify->updated);
 
 		if ((notify->updated > SC_UPDATE_NONE) && (notify->updated % 2 == 0))
 			update_status_info(rich);
